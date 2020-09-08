@@ -3,6 +3,7 @@ project(imgui
 	VERSION 1.7.8
 )
 
+option(IMGUI_BUILD_EXAMPLES "Build examples." OFF)
 
 # ---- Add dependencies via CPM ----
 # see https://github.com/TheLartians/CPM.cmake for more info
@@ -113,6 +114,7 @@ CPMAddPackage(
 	GITHUB_REPOSITORY ocornut/imgui
 	GIT_TAG 78f753ffff6205040503c6635d35ef0a70805e3c
 	DOWNLOAD_ONLY TRUE
+    OPTIONS "CPM_SOURCE_CACHE=${CPM_SOURCE_CACHE}"
 )
 
 if( NOT ${imgui_ADDED} )
@@ -140,6 +142,9 @@ set(sources
 
 add_library(${PROJECT_NAME} STATIC ${sources} ${headers})
 
+target_include_directories(${PROJECT_NAME} PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>
+                 $<INSTALL_INTERFACE:${PROJECT_NAME}-${PROJECT_VERSION}>)
+
 packageProject(
   # the name of the target to export
   NAME ${PROJECT_NAME}
@@ -158,3 +163,24 @@ packageProject(
   VERSION_HEADER "${PROJECT_NAME}/version.h"
   HEADERS ${headers}
 )
+
+if(IMGUI_BUILD_EXAMPLES)
+    add_executable(imgui_example
+        ${imgui_SOURCE_DIR}/examples/imgui_impl_win32.cpp
+        ${imgui_SOURCE_DIR}/examples/imgui_impl_win32.h
+        ${imgui_SOURCE_DIR}/examples/imgui_impl_dx12.cpp
+        ${imgui_SOURCE_DIR}/examples/imgui_impl_dx12.h
+        ${imgui_SOURCE_DIR}/examples/example_win32_directx12/main.cpp
+    )
+    
+    target_include_directories(imgui_example 
+        PRIVATE 
+            ${imgui_SOURCE_DIR}/examples
+    )
+    
+    target_link_libraries(imgui_example 
+        PRIVATE 
+            imgui
+            d3d12 d3dcompiler dxgi
+    )
+endif()
