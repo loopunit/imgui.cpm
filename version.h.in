@@ -1,3 +1,0 @@
-#pragma once
-
-#define @UPPERCASE_PROJECT_NAME@_VERSION "@PROJECT_VERSION@"
