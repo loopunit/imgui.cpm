@@ -37,7 +37,7 @@ endif()
 
 message( STATUS "Building imgui via: ${imgui_SOURCE_DIR}")
 
-set(STAGING_ROOT ${CMAKE_BUILD_DIRECTORY}/imgui_staging)
+set(STAGING_ROOT ${CMAKE_CURRENT_BINARY_DIR}/imgui_staging)
 
 file(GLOB headers 
 	"${imgui_SOURCE_DIR}/imconfig.h"
@@ -77,7 +77,7 @@ packageProject(
 ###############################
 
 if(IMGUI_BUILD_APP_FW)
-    set(APP_STAGING_ROOT ${CMAKE_BUILD_DIRECTORY}/imgui_app_staging)
+    set(APP_STAGING_ROOT ${CMAKE_CURRENT_BINARY_DIR}/imgui_app_staging)
 
     file(GLOB app_impl_headers)
     file(GLOB app_impl_sources)
