@@ -77,34 +77,34 @@ packageProject(
 ###############################
 
 if(IMGUI_BUILD_APP_FW)
-    set(APP_STAGING_ROOT ${CMAKE_CURRENT_BINARY_DIR}/imgui_app_staging)
+    set(APP_STAGING_ROOT ${CMAKE_CURRENT_BINARY_DIR}/imgui_app_fw_staging)
 
-    file(GLOB app_impl_headers)
-    file(GLOB app_impl_sources)
+    file(GLOB app_fw_impl_headers)
+    file(GLOB app_fw_impl_sources)
 
     if(IMGUI_BUILD_APP_WIN32_DX12)
-        file(GLOB app_impl_headers2 
+        file(GLOB app_fw_impl_headers2 
             "${imgui_SOURCE_DIR}/examples/imgui_impl_win32.h"
             "${imgui_SOURCE_DIR}/examples/imgui_impl_dx12.h")
-        file(GLOB app_impl_sources2
+        file(GLOB app_fw_impl_sources2
             "${imgui_SOURCE_DIR}/examples/imgui_impl_win32.cpp"
             "${imgui_SOURCE_DIR}/examples/imgui_impl_dx12.cpp"
             "${CMAKE_CURRENT_LIST_DIR}/src/win32_dx12/main.cpp")
         
-        list(APPEND app_impl_headers ${app_impl_headers2})
-        list(APPEND app_impl_sources ${app_impl_sources2})
+        list(APPEND app_fw_impl_headers ${app_fw_impl_headers2})
+        list(APPEND app_fw_impl_sources ${app_fw_impl_sources2})
     endif()
     if(IMGUI_BUILD_APP_WIN32_DX11)
-        file(GLOB app_impl_headers2
+        file(GLOB app_fw_impl_headers2
             "${imgui_SOURCE_DIR}/examples/imgui_impl_win32.h"
             "${imgui_SOURCE_DIR}/examples/imgui_impl_dx11.h")
-        file(GLOB app_impl_sources2
+        file(GLOB app_fw_impl_sources2
             "${imgui_SOURCE_DIR}/examples/imgui_impl_win32.cpp"
             "${imgui_SOURCE_DIR}/examples/imgui_impl_dx11.cpp"
             "${CMAKE_CURRENT_LIST_DIR}/src/win32_dx11/main.cpp")
 
-        list(APPEND app_impl_headers ${app_impl_headers2})
-        list(APPEND app_impl_sources ${app_impl_sources2})
+        list(APPEND app_fw_impl_headers ${app_fw_impl_headers2})
+        list(APPEND app_fw_impl_sources ${app_fw_impl_sources2})
     endif()
     if(IMGUI_BUILD_APP_GLFW_VULKAN)
         CPMAddPackage(
@@ -121,69 +121,69 @@ if(IMGUI_BUILD_APP_FW)
 
         find_package(Vulkan REQUIRED)
 
-        file(GLOB app_impl_headers2 
+        file(GLOB app_fw_impl_headers2 
             "${imgui_SOURCE_DIR}/examples/imgui_impl_glfw.h"
             "${imgui_SOURCE_DIR}/examples/imgui_impl_vulkan.h")
 
-        file(GLOB app_impl_sources2 
+        file(GLOB app_fw_impl_sources2 
             "${imgui_SOURCE_DIR}/examples/imgui_impl_glfw.cpp"
             "${imgui_SOURCE_DIR}/examples/imgui_impl_vulkan.cpp"
             "${CMAKE_CURRENT_LIST_DIR}/src/glfw_vulkan/main.cpp")
 
-        list(APPEND app_impl_headers ${app_impl_headers2})
-        list(APPEND app_impl_sources ${app_impl_sources2})
+        list(APPEND app_fw_impl_headers ${app_fw_impl_headers2})
+        list(APPEND app_fw_impl_sources ${app_fw_impl_sources2})
     endif()
 
-    file(GLOB app_headers
+    file(GLOB app_fw_headers
         "${CMAKE_CURRENT_LIST_DIR}/include/*.h")
 
-    file(GLOB app_sources
+    file(GLOB app_fw_sources
         "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp")
 
-    add_library(imgui_app STATIC ${app_sources} ${app_impl_sources} ${app_headers} ${app_impl_headers})
+    add_library(imgui_app_fw STATIC ${app_fw_sources} ${app_fw_impl_sources} ${app_fw_headers} ${app_fw_impl_headers})
 
-    target_include_directories(imgui_app PRIVATE ${imgui_SOURCE_DIR}/examples)
+    target_include_directories(imgui_app_fw PRIVATE ${imgui_SOURCE_DIR}/examples)
 
-    target_include_directories(imgui_app PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
-                     $<INSTALL_INTERFACE:imgui_app-${PROJECT_VERSION}>)
+    target_include_directories(imgui_app_fw PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
+                     $<INSTALL_INTERFACE:imgui_app_fw-${PROJECT_VERSION}>)
 
-    target_link_libraries(imgui_app
+    target_link_libraries(imgui_app_fw
         PUBLIC
             imgui)
 
     if(IMGUI_BUILD_APP_WIN32_DX12)
-        target_link_libraries(imgui_app
+        target_link_libraries(imgui_app_fw
             PUBLIC
                 d3d12 d3dcompiler dxgi)
 
-        target_compile_definitions(imgui_app
+        target_compile_definitions(imgui_app_fw
             PUBLIC
                 IMGUI_APP_WIN32_DX12=1)
     endif()
     
     if(IMGUI_BUILD_APP_WIN32_DX11)
-        target_link_libraries(imgui_app
+        target_link_libraries(imgui_app_fw
             PUBLIC
                 d3d11 d3dcompiler dxgi)
 
-        target_compile_definitions(imgui_app
+        target_compile_definitions(imgui_app_fw
             PUBLIC
                 IMGUI_APP_WIN32_DX11=1)
     endif()
     
     if(IMGUI_BUILD_APP_GLFW_VULKAN)
-        target_link_libraries(imgui_app
+        target_link_libraries(imgui_app_fw
             PUBLIC
                 glfw Vulkan::Vulkan)
 
-        target_compile_definitions(imgui_app
+        target_compile_definitions(imgui_app_fw
             PUBLIC
                 IMGUI_APP_GLFW_VULKAN=1)
     endif()
 
     packageProject(
       # the name of the target to export
-      NAME imgui_app
+      NAME imgui_app_fw
       # the version of the target to export
       VERSION ${PROJECT_VERSION}
       # a temporary directory to create the config files
@@ -191,7 +191,7 @@ if(IMGUI_BUILD_APP_FW)
       # location of the target's public headers
       INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/include
       # should match the target's INSTALL_INTERFACE include directory
-      INCLUDE_DESTINATION include/imgui_app-${PROJECT_VERSION}
+      INCLUDE_DESTINATION include/imgui_app_fw-${PROJECT_VERSION}
       # semicolon separated list of the project's dependencies
       DEPENDENCIES "imgui"
     )
@@ -214,5 +214,5 @@ if(IMGUI_BUILD_EXAMPLES)
     
     target_link_libraries(imgui_example 
         PUBLIC
-            imgui_app)
+            imgui_app_fw)
 endif()
