@@ -2,7 +2,7 @@
 // If you are new to dear imgui, see examples/README.txt and documentation at the top of imgui.cpp.
 // FIXME: 64-bit only for now! (Because sizeof(ImTextureId) == sizeof(void*))
 
-#include "../imgui_app_impl.h"
+#include "../imgui_app_fw_impl.h"
 
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx12.h"

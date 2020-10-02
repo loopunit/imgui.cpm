@@ -1,6 +1,6 @@
 #pragma once
 
-#include "imgui_app.h"
+#include "imgui_app_fw.h"
 
 #if IMGUI_APP_WIN32_DX11
 bool init_gui_win32_dx11();
