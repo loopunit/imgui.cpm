@@ -2,7 +2,7 @@
 
 #include <imgui.h>
 
-namespace imgui_app
+namespace imgui_app_fw
 {
 	enum class platform
 	{

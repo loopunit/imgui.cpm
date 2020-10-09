@@ -1,6 +1,6 @@
 #include "imgui_app_fw_impl.h"
 
-namespace imgui_app
+namespace imgui_app_fw
 {
 	static bool init_gui_null()
 	{

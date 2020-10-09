@@ -3,18 +3,18 @@
 // Main code
 int main(int, char**)
 {
-    if (imgui_app::select_platform(imgui_app::platform::win32_dx11))
+    if (imgui_app_fw::select_platform(imgui_app_fw::platform::win32_dx11))
     {
-	    if (imgui_app::init())
+	    if (imgui_app_fw::init())
         {
             // Our state
             bool show_demo_window = true;
             bool show_another_window = false;
             ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-            while (imgui_app::pump())
+            while (imgui_app_fw::pump())
             {
-		        imgui_app::begin_frame();
+		        imgui_app_fw::begin_frame();
 		
                 // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
                 if (show_demo_window)
@@ -53,10 +53,10 @@ int main(int, char**)
                     ImGui::End();
                 }
 
-		        imgui_app::end_frame(clear_color);
+		        imgui_app_fw::end_frame(clear_color);
             }
 
-	        imgui_app::destroy();
+	        imgui_app_fw::destroy();
         }
     }
 
