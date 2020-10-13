@@ -341,6 +341,11 @@ static void glfw_error_callback(int error, const char* description)
     fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
+void set_window_title_glfw_vulkan(const char* title)
+{
+    glfwSetWindowTitle(globals::window, title);
+}
+
 bool init_gui_glfw_vulkan()
 {
     // Setup GLFW window

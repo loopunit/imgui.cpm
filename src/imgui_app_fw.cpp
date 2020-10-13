@@ -24,11 +24,16 @@ namespace imgui_app_fw
 	{
 	}
 
+	void set_window_title_null(const char* title)
+	{
+	}
+
 	static auto init_gui_impl = init_gui_null;
 	static auto pump_gui_impl = pump_gui_null;
 	static auto begin_frame_gui_impl = begin_frame_gui_null;
 	static auto end_frame_gui_impl = end_frame_gui_null;
 	static auto destroy_gui_impl = destroy_gui_null;
+	static auto set_window_title_impl = set_window_title_null;
 
 	bool select_platform(platform p)
 	{
@@ -40,6 +45,7 @@ namespace imgui_app_fw
 			begin_frame_gui_impl = begin_frame_gui_win32_dx11;
 			end_frame_gui_impl = end_frame_gui_win32_dx11;
 			destroy_gui_impl = destroy_gui_win32_dx11;
+			set_window_title_impl = set_window_title_win32_dx11;
 			return true;
 		}
 #endif
@@ -51,6 +57,7 @@ namespace imgui_app_fw
 			begin_frame_gui_impl = begin_frame_gui_win32_dx12;
 			end_frame_gui_impl = end_frame_gui_win32_dx12;
 			destroy_gui_impl = destroy_gui_win32_dx12;
+			set_window_title_impl = set_window_title_win32_dx12;
 			return true;
 		}
 #endif
@@ -62,6 +69,7 @@ namespace imgui_app_fw
 			begin_frame_gui_impl = begin_frame_gui_glfw_vulkan;
 			end_frame_gui_impl = end_frame_gui_glfw_vulkan;
 			destroy_gui_impl = destroy_gui_glfw_vulkan;
+			set_window_title_impl = set_window_title_glfw_vulkan;
 			return true;
 		}
 #endif
@@ -91,6 +99,11 @@ namespace imgui_app_fw
 	void destroy()
 	{
 		return destroy_gui_impl();
+	}
+
+	void set_window_title(const char* title)
+	{
+		set_window_title_impl(title);
 	}
 }
 

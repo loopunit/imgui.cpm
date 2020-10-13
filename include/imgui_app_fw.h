@@ -12,6 +12,7 @@ namespace imgui_app_fw
 	};
 	
 	bool select_platform(platform p);
+	void set_window_title(const char* title);
 
 	bool init();
 	bool pump();

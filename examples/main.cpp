@@ -7,6 +7,8 @@ int main(int, char**)
     {
 	    if (imgui_app_fw::init())
         {
+            imgui_app_fw::set_window_title("Hello!");
+
             // Our state
             bool show_demo_window = true;
             bool show_another_window = false;

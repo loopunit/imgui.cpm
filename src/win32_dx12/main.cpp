@@ -61,10 +61,15 @@ namespace globals
     static HWND hwnd;
 }
 
+void set_window_title_win32_dx12(const char* title)
+{
+    ::SetWindowTextA(globals::hwnd, title);
+}
+
 bool init_gui_win32_dx12()
 {
     // Create application window
-    //ImGui_ImplWin32_EnableDpiAwareness();
+    ImGui_ImplWin32_EnableDpiAwareness();
     globals::wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, _T("ImGui Example"), NULL };
     ::RegisterClassEx(&globals::wc);
     globals::hwnd = ::CreateWindow(globals::wc.lpszClassName, _T("Dear ImGui DirectX12 Example"), WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, globals::wc.hInstance, NULL);
