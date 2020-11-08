@@ -27,7 +27,7 @@ struct FrameContext
 };
 
 // Data
-static int const                    NUM_FRAMES_IN_FLIGHT = 3;
+static int const                    NUM_FRAMES_IN_FLIGHT = 2;
 static FrameContext                 g_frameContext[NUM_FRAMES_IN_FLIGHT] = {};
 static UINT                         g_frameIndex = 0;
 
