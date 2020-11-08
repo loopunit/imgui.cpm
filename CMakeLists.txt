@@ -83,6 +83,21 @@ if(IMGUI_BUILD_APP_FW)
     file(GLOB app_fw_impl_sources)
 
     if(IMGUI_BUILD_APP_WIN32_DX12)
+        CPMAddPackage(
+	        NAME D3D12MemoryAllocator
+	        GITHUB_REPOSITORY GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator
+	        GIT_TAG a322398f6cbc84fbb38bebd473592e6250e5e065
+	        DOWNLOAD_ONLY TRUE)
+
+        if(NOT ${D3D12MemoryAllocator_ADDED})
+    	    message(FATAL_ERROR "Could not find D3D12MemoryAllocator")
+        endif()
+
+        list(APPEND app_fw_impl_headers ${D3D12MemoryAllocator_SOURCE_DIR}/src/D3D12MemAlloc.h)
+        list(APPEND app_fw_impl_sources ${D3D12MemoryAllocator_SOURCE_DIR}/src/D3D12MemAlloc.cpp)
+    endif()
+
+    if(IMGUI_BUILD_APP_WIN32_DX12)
         file(GLOB app_fw_impl_headers2 
             "${imgui_SOURCE_DIR}/examples/imgui_impl_win32.h"
             "${imgui_SOURCE_DIR}/examples/imgui_impl_dx12.h")
@@ -144,6 +159,10 @@ if(IMGUI_BUILD_APP_FW)
 
     target_include_directories(imgui_app_fw PRIVATE ${imgui_SOURCE_DIR}/examples)
 
+    if(IMGUI_BUILD_APP_WIN32_DX12)
+        target_include_directories(imgui_app_fw PRIVATE ${D3D12MemoryAllocator}/src)
+    endif()
+
     target_include_directories(imgui_app_fw PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
                      $<INSTALL_INTERFACE:imgui_app_fw-${PROJECT_VERSION}>)
 
@@ -193,8 +212,7 @@ if(IMGUI_BUILD_APP_FW)
       # should match the target's INSTALL_INTERFACE include directory
       INCLUDE_DESTINATION include/imgui_app_fw-${PROJECT_VERSION}
       # semicolon separated list of the project's dependencies
-      DEPENDENCIES "imgui"
-    )
+      DEPENDENCIES "imgui")
 
 endif()
 
