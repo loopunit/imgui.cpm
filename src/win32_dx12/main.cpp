@@ -31,7 +31,7 @@ static int const                    NUM_FRAMES_IN_FLIGHT = 2;
 static FrameContext                 g_frameContext[NUM_FRAMES_IN_FLIGHT] = {};
 static UINT                         g_frameIndex = 0;
 
-static int const                    NUM_BACK_BUFFERS = 3;
+static int const                    NUM_BACK_BUFFERS = 2;
 static ID3D12Device*                g_pd3dDevice = NULL;
 static ID3D12DescriptorHeap*        g_pd3dRtvDescHeap = NULL;
 static ID3D12DescriptorHeap*        g_pd3dSrvDescHeap = NULL;

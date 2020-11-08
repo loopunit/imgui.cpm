@@ -3,7 +3,7 @@
 // Main code
 int main(int, char**)
 {
-    if (imgui_app_fw::select_platform(imgui_app_fw::platform::win32_dx11))
+    if (imgui_app_fw::select_platform(imgui_app_fw::platform::win32_dx12))
     {
 	    if (imgui_app_fw::init())
         {
