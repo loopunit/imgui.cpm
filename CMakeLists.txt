@@ -100,10 +100,10 @@ if(IMGUI_BUILD_APP_FW)
     if(IMGUI_BUILD_APP_WIN32_DX12)
         file(GLOB app_fw_impl_headers2 
             "${imgui_SOURCE_DIR}/examples/imgui_impl_win32.h"
-            "${imgui_SOURCE_DIR}/examples/imgui_impl_dx12.h")
+            "${CMAKE_CURRENT_LIST_DIR}/src/win32_dx12/imgui_impl_dx12.h")
         file(GLOB app_fw_impl_sources2
             "${imgui_SOURCE_DIR}/examples/imgui_impl_win32.cpp"
-            "${imgui_SOURCE_DIR}/examples/imgui_impl_dx12.cpp"
+            "${CMAKE_CURRENT_LIST_DIR}/src/win32_dx12/imgui_impl_dx12.cpp"
             "${CMAKE_CURRENT_LIST_DIR}/src/win32_dx12/main.cpp")
         
         list(APPEND app_fw_impl_headers ${app_fw_impl_headers2})
@@ -160,7 +160,7 @@ if(IMGUI_BUILD_APP_FW)
     target_include_directories(imgui_app_fw PRIVATE ${imgui_SOURCE_DIR}/examples)
 
     if(IMGUI_BUILD_APP_WIN32_DX12)
-        target_include_directories(imgui_app_fw PRIVATE ${D3D12MemoryAllocator}/src)
+        target_include_directories(imgui_app_fw PRIVATE ${D3D12MemoryAllocator_SOURCE_DIR}/src)
     endif()
 
     target_include_directories(imgui_app_fw PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>

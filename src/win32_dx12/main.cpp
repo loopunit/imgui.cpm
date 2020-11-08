@@ -20,6 +20,8 @@
 #pragma comment(lib, "dxguid.lib")
 #endif
 
+#include <D3D12MemAlloc.h>
+
 struct FrameContext
 {
 	ID3D12CommandAllocator* CommandAllocator;
@@ -45,6 +47,7 @@ static IDXGISwapChain3*			   g_pSwapChain									  = NULL;
 static HANDLE					   g_hSwapChainWaitableObject					  = NULL;
 static ID3D12Resource*			   g_mainRenderTargetResource[NUM_BACK_BUFFERS]	  = {};
 static D3D12_CPU_DESCRIPTOR_HANDLE g_mainRenderTargetDescriptor[NUM_BACK_BUFFERS] = {};
+D3D12MA::Allocator*				   g_allocator									  = nullptr;
 
 // Forward declarations of helper functions
 static bool			  CreateDeviceD3D(HWND hWnd);
@@ -267,7 +270,38 @@ static bool CreateDeviceD3D(HWND hWnd)
 			return false;
 		}
 
-		dxgi_factory->EnumAdapterByLuid(g_pd3dDevice->GetAdapterLuid(), IID_PPV_ARGS(&g_dxgiAdapter));
+		if (dxgi_factory->EnumAdapterByLuid(g_pd3dDevice->GetAdapterLuid(), IID_PPV_ARGS(&g_dxgiAdapter)) != S_OK)
+		{
+			return false;
+		}
+		dxgi_factory->Release();
+	}
+
+	{
+		D3D12MA::ALLOCATOR_DESC allocatorDesc = {};
+		allocatorDesc.pDevice				  = g_pd3dDevice;
+		allocatorDesc.pAdapter				  = g_dxgiAdapter;
+		// g_allocationCallbacks.pAllocate		  = &CustomAllocate;
+		// g_allocationCallbacks.pFree			  = &CustomFree;
+		// g_allocationCallbacks.pUserData		  = CUSTOM_ALLOCATION_USER_DATA;
+		// desc.pallocationCallbacks			  = &g_allocationCallbacks;
+
+		if (D3D12MA::CreateAllocator(&allocatorDesc, &g_allocator) != S_OK)
+		{
+			return false;
+		}
+
+		switch (g_allocator->GetD3D12Options().ResourceHeapTier)
+		{
+		case D3D12_RESOURCE_HEAP_TIER_1:
+			OutputDebugStringA("ResourceHeapTier = D3D12_RESOURCE_HEAP_TIER_1\n");
+			break;
+		case D3D12_RESOURCE_HEAP_TIER_2:
+			OutputDebugStringA("ResourceHeapTier = D3D12_RESOURCE_HEAP_TIER_2\n");
+			break;
+		default:
+			assert(0);
+		}
 	}
 
 	{
