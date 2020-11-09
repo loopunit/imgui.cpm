@@ -29,20 +29,21 @@ struct FrameContext
 };
 
 // Data
-static int const	NUM_FRAMES_IN_FLIGHT				 = 2;
-static FrameContext g_frameContext[NUM_FRAMES_IN_FLIGHT] = {};
-static UINT			g_frameIndex						 = 0;
+static constexpr int NUM_FRAMES_IN_FLIGHT				  = 2;
+static FrameContext	 g_frameContext[NUM_FRAMES_IN_FLIGHT] = {};
+static UINT			 g_frameIndex						  = 0;
 
-static int const				   NUM_BACK_BUFFERS								  = 2;
+static constexpr int			   NUM_BACK_BUFFERS								  = 2;
 static ID3D12Device*			   g_pd3dDevice									  = NULL;
 static IDXGIAdapter*			   g_dxgiAdapter								  = NULL;
 static ID3D12DescriptorHeap*	   g_pd3dRtvDescHeap							  = NULL;
 static ID3D12DescriptorHeap*	   g_pd3dSrvDescHeap							  = NULL;
 static ID3D12CommandQueue*		   g_pd3dCommandQueue							  = NULL;
 static ID3D12GraphicsCommandList*  g_pd3dCommandList							  = NULL;
-static ID3D12Fence*				   g_fence										  = NULL;
+static ID3D12Fence*				   g_fences[NUM_FRAMES_IN_FLIGHT]				  = {};
 static HANDLE					   g_fenceEvent									  = NULL;
 static UINT64					   g_fenceLastSignaledValue						  = 0;
+static int						   g_fenceLastSignaled							  = 0;
 static IDXGISwapChain3*			   g_pSwapChain									  = NULL;
 static HANDLE					   g_hSwapChainWaitableObject					  = NULL;
 static ID3D12Resource*			   g_mainRenderTargetResource[NUM_BACK_BUFFERS]	  = {};
@@ -207,12 +208,13 @@ void end_frame_gui_win32_dx12(ImVec4 clear_color)
 		ImGui::RenderPlatformWindowsDefault(NULL, (void*)g_pd3dCommandList);
 	}
 
-	g_pSwapChain->Present(1, 0); // Present with vsync
-	// g_pSwapChain->Present(0, 0); // Present without vsync
+	//g_pSwapChain->Present(1, 0); // Present with vsync
+	g_pSwapChain->Present(0, 0); // Present without vsync
 
 	UINT64 fenceValue = g_fenceLastSignaledValue + 1;
-	g_pd3dCommandQueue->Signal(g_fence, fenceValue);
+	g_pd3dCommandQueue->Signal(g_fences[backBufferIdx], fenceValue);
 	g_fenceLastSignaledValue = fenceValue;
+	g_fenceLastSignaled		 = backBufferIdx;
 	frameCtxt->FenceValue	 = fenceValue;
 }
 
@@ -348,8 +350,9 @@ static bool CreateDeviceD3D(HWND hWnd)
 		g_pd3dCommandList->Close() != S_OK)
 		return false;
 
-	if (g_pd3dDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&g_fence)) != S_OK)
-		return false;
+	for (UINT i = 0; i < NUM_FRAMES_IN_FLIGHT; i++)
+		if (g_pd3dDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&g_fences[i])) != S_OK)
+			return false;
 
 	g_fenceEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 	if (g_fenceEvent == NULL)
@@ -409,11 +412,12 @@ static void CleanupDeviceD3D()
 		g_pd3dSrvDescHeap->Release();
 		g_pd3dSrvDescHeap = NULL;
 	}
-	if (g_fence)
-	{
-		g_fence->Release();
-		g_fence = NULL;
-	}
+	for (UINT i = 0; i < NUM_FRAMES_IN_FLIGHT; i++)
+		if (g_fences[i])
+		{
+			g_fences[i]->Release();
+			g_fences[i] = NULL;
+		}
 	if (g_fenceEvent)
 	{
 		CloseHandle(g_fenceEvent);
@@ -472,10 +476,10 @@ static void WaitForLastSubmittedFrame()
 		return; // No fence was signaled
 
 	frameCtxt->FenceValue = 0;
-	if (g_fence->GetCompletedValue() >= fenceValue)
+	if (g_fences[g_fenceLastSignaled]->GetCompletedValue() >= fenceValue)
 		return;
 
-	g_fence->SetEventOnCompletion(fenceValue, g_fenceEvent);
+	g_fences[g_fenceLastSignaled]->SetEventOnCompletion(fenceValue, g_fenceEvent);
 	WaitForSingleObject(g_fenceEvent, INFINITE);
 }
 
@@ -492,7 +496,7 @@ static FrameContext* WaitForNextFrameResources()
 	if (fenceValue != 0) // means no fence was signaled
 	{
 		frameCtxt->FenceValue = 0;
-		g_fence->SetEventOnCompletion(fenceValue, g_fenceEvent);
+		g_fences[g_fenceLastSignaled]->SetEventOnCompletion(fenceValue, g_fenceEvent);
 		waitableObjects[1] = g_fenceEvent;
 		numWaitableObjects = 2;
 	}
