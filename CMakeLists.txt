@@ -28,7 +28,7 @@ CPMAddPackage(
 CPMAddPackage(
 	NAME imgui
 	GITHUB_REPOSITORY ocornut/imgui
-	GIT_TAG 78f753ffff6205040503c6635d35ef0a70805e3c
+	GIT_TAG ac08593b9645aee7e086b1e9b98a6a1d79d09210
 	DOWNLOAD_ONLY TRUE)
 
 if( NOT ${imgui_ADDED} )
@@ -99,10 +99,10 @@ if(IMGUI_BUILD_APP_FW)
 
     if(IMGUI_BUILD_APP_WIN32_DX12)
         file(GLOB app_fw_impl_headers2 
-            "${imgui_SOURCE_DIR}/examples/imgui_impl_win32.h"
+            "${imgui_SOURCE_DIR}/backends/imgui_impl_win32.h"
             "${CMAKE_CURRENT_LIST_DIR}/src/win32_dx12/imgui_impl_dx12.h")
         file(GLOB app_fw_impl_sources2
-            "${imgui_SOURCE_DIR}/examples/imgui_impl_win32.cpp"
+            "${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp"
             "${CMAKE_CURRENT_LIST_DIR}/src/win32_dx12/imgui_impl_dx12.cpp"
             "${CMAKE_CURRENT_LIST_DIR}/src/win32_dx12/main.cpp")
         
@@ -111,11 +111,11 @@ if(IMGUI_BUILD_APP_FW)
     endif()
     if(IMGUI_BUILD_APP_WIN32_DX11)
         file(GLOB app_fw_impl_headers2
-            "${imgui_SOURCE_DIR}/examples/imgui_impl_win32.h"
-            "${imgui_SOURCE_DIR}/examples/imgui_impl_dx11.h")
+            "${imgui_SOURCE_DIR}/backends/imgui_impl_win32.h"
+            "${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.h")
         file(GLOB app_fw_impl_sources2
-            "${imgui_SOURCE_DIR}/examples/imgui_impl_win32.cpp"
-            "${imgui_SOURCE_DIR}/examples/imgui_impl_dx11.cpp"
+            "${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp"
+            "${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp"
             "${CMAKE_CURRENT_LIST_DIR}/src/win32_dx11/main.cpp")
 
         list(APPEND app_fw_impl_headers ${app_fw_impl_headers2})
@@ -137,12 +137,12 @@ if(IMGUI_BUILD_APP_FW)
         find_package(Vulkan REQUIRED)
 
         file(GLOB app_fw_impl_headers2 
-            "${imgui_SOURCE_DIR}/examples/imgui_impl_glfw.h"
-            "${imgui_SOURCE_DIR}/examples/imgui_impl_vulkan.h")
+            "${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.h"
+            "${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.h")
 
         file(GLOB app_fw_impl_sources2 
-            "${imgui_SOURCE_DIR}/examples/imgui_impl_glfw.cpp"
-            "${imgui_SOURCE_DIR}/examples/imgui_impl_vulkan.cpp"
+            "${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp"
+            "${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp"
             "${CMAKE_CURRENT_LIST_DIR}/src/glfw_vulkan/main.cpp")
 
         list(APPEND app_fw_impl_headers ${app_fw_impl_headers2})
@@ -157,7 +157,7 @@ if(IMGUI_BUILD_APP_FW)
 
     add_library(imgui_app_fw STATIC ${app_fw_sources} ${app_fw_impl_sources} ${app_fw_headers} ${app_fw_impl_headers})
 
-    target_include_directories(imgui_app_fw PRIVATE ${imgui_SOURCE_DIR}/examples)
+    target_include_directories(imgui_app_fw PRIVATE ${imgui_SOURCE_DIR}/backends)
 
     if(IMGUI_BUILD_APP_WIN32_DX12)
         target_include_directories(imgui_app_fw PRIVATE ${D3D12MemoryAllocator_SOURCE_DIR}/src)
