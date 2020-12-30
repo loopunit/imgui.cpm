@@ -90,16 +90,6 @@ if(IMGUI_BUILD_APP_FW)
 
     file(GLOB app_fw_impl_headers)
     file(GLOB app_fw_impl_sources)
-
-    CPMAddPackage(
-	    NAME wil
-	    GITHUB_REPOSITORY microsoft/wil
-	    GIT_TAG c5d2efe677467d8d8bf66226e42d5fc2d4b66613
-	    DOWNLOAD_ONLY TRUE)
-
-    if(NOT ${wil_ADDED})
-    	message(FATAL_ERROR "Could not find wil")
-    endif()
     
     if(IMGUI_BUILD_APP_WIN32_DX12)
         CPMAddPackage(
@@ -141,16 +131,11 @@ if(IMGUI_BUILD_APP_FW)
         list(APPEND app_fw_impl_headers ${app_fw_impl_headers2})
         list(APPEND app_fw_impl_sources ${app_fw_impl_sources2})
     endif()
-    if(IMGUI_BUILD_APP_GLFW_VULKAN)
-        file(GLOB app_fw_impl_headers2 
-            "${CMAKE_CURRENT_LIST_DIR}/src/glfw_vulkan/ImguiCommon.h"
-            "${CMAKE_CURRENT_LIST_DIR}/src/glfw_vulkan/ImguiRenderer.h")
 
+    if(IMGUI_BUILD_APP_GLFW_VULKAN)
         file(GLOB app_fw_impl_sources2 
-            "${CMAKE_CURRENT_LIST_DIR}/src/glfw_vulkan/ImguiRenderer.cpp"
             "${CMAKE_CURRENT_LIST_DIR}/src/glfw_vulkan/main.cpp")
 
-        list(APPEND app_fw_impl_headers ${app_fw_impl_headers2})
         list(APPEND app_fw_impl_sources ${app_fw_impl_sources2})
     endif()
 
