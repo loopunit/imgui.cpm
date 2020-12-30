@@ -7,14 +7,15 @@ include(CMakeDependentOption)
 
 option(IMGUI_BUILD_EXAMPLES "Build examples." OFF)
 cmake_dependent_option(IMGUI_BUILD_APP_FW "Build app framework." OFF "IMGUI_BUILD_EXAMPLES" ON)
-option(IMGUI_BUILD_APP_WIN32_DX11 "Win32 DX11" ON)
-option(IMGUI_BUILD_APP_WIN32_DX12 "Win32 DX12" ON)
-option(IMGUI_BUILD_APP_GLFW_VULKAN "GLFW Vulkan" OFF)
+option(IMGUI_BUILD_APP_WIN32_DX11 "Win32 DX11" OFF)
+option(IMGUI_BUILD_APP_WIN32_DX12 "Win32 DX12" OFF)
+option(IMGUI_BUILD_APP_GLFW_VULKAN "GLFW Vulkan" ON)
 
 # ---- Add dependencies via CPM ----
 # see https://github.com/TheLartians/CPM.cmake for more info
 
 include(cmake/CPM.cmake)
+include(ExternalProject)
 
 ####
 
@@ -25,17 +26,25 @@ CPMAddPackage(
 
 ####
 
+if(IMGUI_BUILD_APP_GLFW_VULKAN)
+    include(runtime.cpm/glslang.cmake)
+    include(runtime.cpm/framegraph.cmake)
+    include(runtime.cpm/glfw.cmake)
+endif()
+
+####
+
 CPMAddPackage(
 	NAME imgui
 	GITHUB_REPOSITORY ocornut/imgui
 	GIT_TAG ac08593b9645aee7e086b1e9b98a6a1d79d09210
 	DOWNLOAD_ONLY TRUE)
 
-if( NOT ${imgui_ADDED} )
+if(NOT ${imgui_ADDED})
 	message( FATAL_ERROR "Could not find imgui" )
 endif()
 
-message( STATUS "Building imgui via: ${imgui_SOURCE_DIR}")
+message(STATUS "Building imgui via: ${imgui_SOURCE_DIR}")
 
 set(STAGING_ROOT ${CMAKE_CURRENT_BINARY_DIR}/imgui_staging)
 
@@ -82,6 +91,16 @@ if(IMGUI_BUILD_APP_FW)
     file(GLOB app_fw_impl_headers)
     file(GLOB app_fw_impl_sources)
 
+    CPMAddPackage(
+	    NAME wil
+	    GITHUB_REPOSITORY microsoft/wil
+	    GIT_TAG c5d2efe677467d8d8bf66226e42d5fc2d4b66613
+	    DOWNLOAD_ONLY TRUE)
+
+    if(NOT ${wil_ADDED})
+    	message(FATAL_ERROR "Could not find wil")
+    endif()
+    
     if(IMGUI_BUILD_APP_WIN32_DX12)
         CPMAddPackage(
 	        NAME D3D12MemoryAllocator
@@ -109,6 +128,7 @@ if(IMGUI_BUILD_APP_FW)
         list(APPEND app_fw_impl_headers ${app_fw_impl_headers2})
         list(APPEND app_fw_impl_sources ${app_fw_impl_sources2})
     endif()
+
     if(IMGUI_BUILD_APP_WIN32_DX11)
         file(GLOB app_fw_impl_headers2
             "${imgui_SOURCE_DIR}/backends/imgui_impl_win32.h"
@@ -122,27 +142,12 @@ if(IMGUI_BUILD_APP_FW)
         list(APPEND app_fw_impl_sources ${app_fw_impl_sources2})
     endif()
     if(IMGUI_BUILD_APP_GLFW_VULKAN)
-        CPMAddPackage(
-	        NAME glfw
-	        GITHUB_REPOSITORY glfw/glfw
-	        GIT_TAG 1353f37a5172d05d89645d8f3e9414fbdd4fc3d6
-            OPTIONS
-                "BUILD_SHARED_LIBS OFF"
-                "GLFW_BUILD_EXAMPLES OFF"
-                "GLFW_BUILD_TESTS OFF"
-                "GLFW_BUILD_DOCS OFF"
-                "GLFW_VULKAN_STATIC ON"
-                "USE_MSVC_RUNTIME_LIBRARY_DLL ON")
-
-        find_package(Vulkan REQUIRED)
-
         file(GLOB app_fw_impl_headers2 
-            "${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.h"
-            "${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.h")
+            "${CMAKE_CURRENT_LIST_DIR}/src/glfw_vulkan/ImguiCommon.h"
+            "${CMAKE_CURRENT_LIST_DIR}/src/glfw_vulkan/ImguiRenderer.h")
 
         file(GLOB app_fw_impl_sources2 
-            "${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp"
-            "${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp"
+            "${CMAKE_CURRENT_LIST_DIR}/src/glfw_vulkan/ImguiRenderer.cpp"
             "${CMAKE_CURRENT_LIST_DIR}/src/glfw_vulkan/main.cpp")
 
         list(APPEND app_fw_impl_headers ${app_fw_impl_headers2})
@@ -157,7 +162,10 @@ if(IMGUI_BUILD_APP_FW)
 
     add_library(imgui_app_fw STATIC ${app_fw_sources} ${app_fw_impl_sources} ${app_fw_headers} ${app_fw_impl_headers})
 
-    target_include_directories(imgui_app_fw PRIVATE ${imgui_SOURCE_DIR}/backends)
+    target_include_directories(imgui_app_fw 
+        PRIVATE 
+            ${imgui_SOURCE_DIR}/backends
+            ${APP_STAGING_ROOT}/include)
 
     if(IMGUI_BUILD_APP_WIN32_DX12)
         target_include_directories(imgui_app_fw PRIVATE ${D3D12MemoryAllocator_SOURCE_DIR}/src)
@@ -174,7 +182,9 @@ if(IMGUI_BUILD_APP_FW)
         target_link_libraries(imgui_app_fw
             PUBLIC
                 d3d12 d3dcompiler dxgi)
+    endif()
 
+    if(IMGUI_BUILD_APP_WIN32_DX12)
         target_compile_definitions(imgui_app_fw
             PUBLIC
                 IMGUI_APP_WIN32_DX12=1)
@@ -193,12 +203,14 @@ if(IMGUI_BUILD_APP_FW)
     if(IMGUI_BUILD_APP_GLFW_VULKAN)
         target_link_libraries(imgui_app_fw
             PUBLIC
-                glfw Vulkan::Vulkan)
+                glfw_cpm framegraph_cpm glslang_cpm)
 
         target_compile_definitions(imgui_app_fw
             PUBLIC
                 IMGUI_APP_GLFW_VULKAN=1)
     endif()
+    
+    set_target_properties(imgui_app_fw PROPERTIES CXX_STANDARD 17)
 
     packageProject(
       # the name of the target to export
