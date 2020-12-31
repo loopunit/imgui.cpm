@@ -2,7 +2,7 @@
 
 #include "../imgui_app_fw_impl.h"
 
-#include <Framework/Vulkan/VulkanDevice.h>
+#include "VulkanDevice2.h"
 #include <Framework/Vulkan/VulkanSwapchain.h>
 #include <framegraph/FG.h>
 #include <pipeline_compiler/VPipelineCompiler.h>
@@ -37,16 +37,19 @@ struct imgui_renderer
 	FG::SamplerID	m_font_sampler;
 	FG::GPipelineID m_pipeline;
 
-	FG::BufferID m_vertex_buffer;
-	FG::BufferID m_index_buffer;
-	FG::BufferID m_uniform_buffer;
+	struct per_window
+	{
+		FG::BufferID m_vertex_buffer;
+		FG::BufferID m_index_buffer;
+		FG::BufferID m_uniform_buffer;
 
-	FG::BytesU m_vertex_buf_size;
-	FG::BytesU m_index_buf_size;
+		FG::BytesU m_vertex_buf_size;
+		FG::BytesU m_index_buf_size;
 
-	FG::PipelineResources _resources;
+		FG::PipelineResources _resources;
+	};
 
-	bool init(ImGuiContext* _context, const FG::FrameGraph& fg)
+	bool init_shared(ImGuiContext* _context, const FG::FrameGraph& fg)
 	{
 		CHECK_ERR(create_pipeline(fg));
 		CHECK_ERR(create_sampler(fg));
@@ -60,20 +63,33 @@ struct imgui_renderer
 		return true;
 	}
 
-	void destroy(const FG::FrameGraph& fg)
+	bool init(per_window& pw, ImGuiContext* _context, const FG::FrameGraph& fg)
+	{
+		CHECK_ERR(init_pipeline(pw, fg));
+		return true;
+	}
+
+	void destroy(per_window& pw, const FG::FrameGraph& fg)
+	{
+		if (fg)
+		{
+			fg->ReleaseResource(INOUT pw.m_vertex_buffer);
+			fg->ReleaseResource(INOUT pw.m_index_buffer);
+			fg->ReleaseResource(INOUT pw.m_uniform_buffer);
+		}
+	}
+
+	void destroy_shared(const FG::FrameGraph& fg)
 	{
 		if (fg)
 		{
 			fg->ReleaseResource(INOUT m_font_texture);
 			fg->ReleaseResource(INOUT m_font_sampler);
 			fg->ReleaseResource(INOUT m_pipeline);
-			fg->ReleaseResource(INOUT m_vertex_buffer);
-			fg->ReleaseResource(INOUT m_index_buffer);
-			fg->ReleaseResource(INOUT m_uniform_buffer);
 		}
 	}
 
-	FG::Task draw(ImDrawData* draw_data, ImGuiContext* _context, const FG::CommandBuffer& cmdbuf, FG::LogicalPassID passId, FG::ArrayView<FG::Task> dependencies = FG::Default)
+	FG::Task draw(per_window& pw, ImDrawData* draw_data, ImGuiContext* _context, const FG::CommandBuffer& cmdbuf, FG::LogicalPassID passId, FG::ArrayView<FG::Task> dependencies)
 	{
 		CHECK_ERR(cmdbuf and _context);
 
@@ -86,9 +102,8 @@ struct imgui_renderer
 
 		FG::SubmitRenderPass submit{passId};
 
-		submit.DependsOn(create_font_texture(_context, cmdbuf));
-		submit.DependsOn(create_buffers(draw_data, _context, cmdbuf));
-		submit.DependsOn(update_uniform_buffer(draw_data, _context, cmdbuf));
+		submit.DependsOn(create_buffers(pw, draw_data, _context, cmdbuf));
+		submit.DependsOn(update_uniform_buffer(pw, draw_data, _context, cmdbuf));
 
 		for (auto dep : dependencies)
 		{
@@ -107,8 +122,8 @@ struct imgui_renderer
 		ImVec2 clip_off	  = draw_data->DisplayPos;		 // (0,0) unless using multi-viewports
 		ImVec2 clip_scale = draw_data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 
-		_resources.BindBuffer(FG::UniformID("uPushConstant"), m_uniform_buffer);
-		_resources.BindTexture(FG::UniformID("sTexture"), m_font_texture, m_font_sampler);
+		pw._resources.BindBuffer(FG::UniformID("uPushConstant"), pw.m_uniform_buffer);
+		pw._resources.BindTexture(FG::UniformID("sTexture"), m_font_texture, m_font_sampler);
 
 		for (int i = 0; i < draw_data->CmdListsCount; ++i)
 		{
@@ -142,11 +157,11 @@ struct imgui_renderer
 						cmdbuf->AddTask(
 							passId, FG::DrawIndexed{}
 										.SetPipeline(m_pipeline)
-										.AddResources(FG::DescriptorSetID{"0"}, _resources)
-										.AddVertexBuffer(FG::VertexBufferID(), m_vertex_buffer)
+										.AddResources(FG::DescriptorSetID{"0"}, pw._resources)
+										.AddVertexBuffer(FG::VertexBufferID(), pw.m_vertex_buffer)
 										.SetVertexInput(vert_input)
 										.SetTopology(FG::EPrimitive::TriangleList)
-										.SetIndexBuffer(m_index_buffer, (FG::BytesU)0, FG::EIndex::UShort)
+										.SetIndexBuffer(pw.m_index_buffer, (FG::BytesU)0, FG::EIndex::UShort)
 										.AddColorBuffer(FG::RenderTargetID::Color_0, FG::EBlendFactor::SrcAlpha, FG::EBlendFactor::OneMinusSrcAlpha, FG::EBlendOp::Add)
 										.SetDepthTestEnabled(false)
 										.SetCullMode(FG::ECullMode::None)
@@ -215,8 +230,12 @@ struct imgui_renderer
 
 		m_pipeline = fg->CreatePipeline(desc);
 		CHECK_ERR(m_pipeline);
+		return true;
+	}
 
-		CHECK_ERR(fg->InitPipelineResources(m_pipeline, FG::DescriptorSetID("0"), OUT _resources));
+	bool init_pipeline(per_window& pw, const FG::FrameGraph& fg)
+	{
+		CHECK_ERR(fg->InitPipelineResources(m_pipeline, FG::DescriptorSetID("0"), OUT pw._resources));
 		return true;
 	}
 
@@ -257,26 +276,26 @@ struct imgui_renderer
 		return cmdbuf->AddTask(FG::UpdateImage{}.SetImage(m_font_texture).SetData(pixels, upload_size, FG::uint2{FG::int2{width, height}}));
 	}
 
-	ND_ FG::Task create_buffers(ImDrawData* draw_data, ImGuiContext* _context, const FG::CommandBuffer& cmdbuf)
+	ND_ FG::Task create_buffers(per_window& pw, ImDrawData* draw_data, ImGuiContext* _context, const FG::CommandBuffer& cmdbuf)
 	{
 		FG::FrameGraph fg		   = cmdbuf->GetFrameGraph();
 		FG::BytesU	   vertex_size = draw_data->TotalVtxCount * FG::SizeOf<ImDrawVert>;
 		FG::BytesU	   index_size  = draw_data->TotalIdxCount * FG::SizeOf<ImDrawIdx>;
 
-		if (not m_vertex_buffer or vertex_size > m_vertex_buf_size)
+		if (not pw.m_vertex_buffer or vertex_size > pw.m_vertex_buf_size)
 		{
-			fg->ReleaseResource(INOUT m_vertex_buffer);
+			fg->ReleaseResource(INOUT pw.m_vertex_buffer);
 
-			m_vertex_buf_size = vertex_size;
-			m_vertex_buffer	  = fg->CreateBuffer(FG::BufferDesc{vertex_size, FG::EBufferUsage::TransferDst | FG::EBufferUsage::Vertex}, FG::Default, "UI.VertexBuffer");
+			pw.m_vertex_buf_size = vertex_size;
+			pw.m_vertex_buffer	 = fg->CreateBuffer(FG::BufferDesc{vertex_size, FG::EBufferUsage::TransferDst | FG::EBufferUsage::Vertex}, FG::Default, "UI.VertexBuffer");
 		}
 
-		if (not m_index_buffer or index_size > m_index_buf_size)
+		if (not pw.m_index_buffer or index_size > pw.m_index_buf_size)
 		{
-			fg->ReleaseResource(INOUT m_index_buffer);
+			fg->ReleaseResource(INOUT pw.m_index_buffer);
 
-			m_index_buf_size = index_size;
-			m_index_buffer	 = fg->CreateBuffer(FG::BufferDesc{index_size, FG::EBufferUsage::TransferDst | FG::EBufferUsage::Index}, FG::Default, "UI.IndexBuffer");
+			pw.m_index_buf_size = index_size;
+			pw.m_index_buffer	= fg->CreateBuffer(FG::BufferDesc{index_size, FG::EBufferUsage::TransferDst | FG::EBufferUsage::Index}, FG::Default, "UI.IndexBuffer");
 		}
 
 		FG::BytesU vb_offset;
@@ -288,8 +307,8 @@ struct imgui_renderer
 		{
 			const ImDrawList& cmd_list = *draw_data->CmdLists[i];
 
-			last_task = cmdbuf->AddTask(FG::UpdateBuffer{}.SetBuffer(m_vertex_buffer).AddData(cmd_list.VtxBuffer.Data, cmd_list.VtxBuffer.Size, vb_offset).DependsOn(last_task));
-			last_task = cmdbuf->AddTask(FG::UpdateBuffer{}.SetBuffer(m_index_buffer).AddData(cmd_list.IdxBuffer.Data, cmd_list.IdxBuffer.Size, ib_offset).DependsOn(last_task));
+			last_task = cmdbuf->AddTask(FG::UpdateBuffer{}.SetBuffer(pw.m_vertex_buffer).AddData(cmd_list.VtxBuffer.Data, cmd_list.VtxBuffer.Size, vb_offset).DependsOn(last_task));
+			last_task = cmdbuf->AddTask(FG::UpdateBuffer{}.SetBuffer(pw.m_index_buffer).AddData(cmd_list.IdxBuffer.Data, cmd_list.IdxBuffer.Size, ib_offset).DependsOn(last_task));
 
 			vb_offset += cmd_list.VtxBuffer.Size * FG::SizeOf<ImDrawVert>;
 			ib_offset += cmd_list.IdxBuffer.Size * FG::SizeOf<ImDrawIdx>;
@@ -300,13 +319,13 @@ struct imgui_renderer
 		return last_task;
 	}
 
-	ND_ FG::Task update_uniform_buffer(ImDrawData* draw_data, ImGuiContext* _context, const FG::CommandBuffer& cmdbuf)
+	ND_ FG::Task update_uniform_buffer(per_window& pw, ImDrawData* draw_data, ImGuiContext* _context, const FG::CommandBuffer& cmdbuf)
 	{
-		if (not m_uniform_buffer)
+		if (not pw.m_uniform_buffer)
 		{
-			m_uniform_buffer =
+			pw.m_uniform_buffer =
 				cmdbuf->GetFrameGraph()->CreateBuffer(FG::BufferDesc{(FG::BytesU)16, FG::EBufferUsage::Uniform | FG::EBufferUsage::TransferDst}, FG::Default, "UI.UniformBuffer");
-			CHECK_ERR(m_uniform_buffer);
+			CHECK_ERR(pw.m_uniform_buffer);
 		}
 
 		FG::float4 pc_data;
@@ -317,7 +336,7 @@ struct imgui_renderer
 		pc_data[2] = -1.0f - draw_data->DisplayPos.x * pc_data[0];
 		pc_data[3] = -1.0f - draw_data->DisplayPos.y * pc_data[1];
 
-		return cmdbuf->AddTask(FG::UpdateBuffer{}.SetBuffer(m_uniform_buffer).AddData(&pc_data, 1));
+		return cmdbuf->AddTask(FG::UpdateBuffer{}.SetBuffer(pw.m_uniform_buffer).AddData(&pc_data, 1));
 	}
 };
 
@@ -369,75 +388,83 @@ struct platform_renderer_data
 {
 	bool m_is_primary{false};
 
-	FGC::UniquePtr<FGC::VulkanDeviceInitializer> m_device;
-	FG::FrameGraph								 m_frame_graph;
-	FG::SwapchainID								 m_swapchain_id;
-	imgui_renderer								 m_imgui_renderer;
+	FGC::VulkanDevice2::window_specific m_window_specific;
+	FG::SwapchainID						m_swapchain_id;
+	imgui_renderer::per_window			m_imgui_window;
+
+	struct shared_data
+	{
+		FGC::UniquePtr<FGC::VulkanDevice2Initializer> m_device;
+		FG::FrameGraph								  m_frame_graph;
+		imgui_renderer								  m_imgui_renderer;
+		FG::Array<FG::Task>							  m_shared_tasks;
+	};
+
+	static inline shared_data m_shared;
 
 	void init(ImGuiContext* imgui_context, ImGuiViewport* viewport, bool primary)
 	{
-		auto window				 = (GLFWwindow*)viewport->PlatformHandle;
-		auto new_device			 = std::make_unique<FGC::VulkanDeviceInitializer>();
-		auto surface_factory	 = FGC::UniquePtr<FGC::IVulkanSurface>(new platform_device_factory(window));
-		auto required_extensions = surface_factory->GetRequiredExtensions();
+		auto window			 = (GLFWwindow*)viewport->PlatformHandle;
+		auto surface_factory = FGC::UniquePtr<FGC::IVulkanSurface>(new platform_device_factory(window));
 
 		if (primary)
 		{
-			new_device->CreateInstance(std::move(surface_factory), "app_name", "engine_name", new_device->GetRecomendedInstanceLayers(), required_extensions);
+			auto new_device			 = std::make_unique<FGC::VulkanDevice2Initializer>();
+			auto required_extensions = surface_factory->GetRequiredExtensions();
+			new_device->CreateInstance("app_name", "engine_name", new_device->GetRecomendedInstanceLayers(), required_extensions);
+
+			m_window_specific.CreateInstance(surface_factory, new_device->GetVkInstance());
+
+			new_device->ChooseHighPerformanceDevice();
+			new_device->CreateLogicalDevice({{VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_SPARSE_BINDING_BIT}, {VK_QUEUE_COMPUTE_BIT}, {VK_QUEUE_TRANSFER_BIT}}, true, true, FGC::Default);
+
+			FG::VulkanDeviceInfo vulkan_info;
+			{
+				vulkan_info.instance	   = FGC::BitCast<FG::InstanceVk_t>(new_device->GetVkInstance());
+				vulkan_info.physicalDevice = FGC::BitCast<FG::PhysicalDeviceVk_t>(new_device->GetVkPhysicalDevice());
+				vulkan_info.device		   = FGC::BitCast<FG::DeviceVk_t>(new_device->GetVkDevice());
+
+				vulkan_info.maxStagingBufferMemory = ~FGC::BytesU(0);
+				vulkan_info.stagingBufferSize	   = FGC::BytesU{8 * 1024 * 1024};
+
+				for (auto& q : new_device->GetVkQueues())
+				{
+					FG::VulkanDeviceInfo::QueueInfo qi;
+					qi.handle	   = FGC::BitCast<FG::QueueVk_t>(q.handle);
+					qi.familyFlags = FGC::BitCast<FG::QueueFlagsVk_t>(q.familyFlags);
+					qi.familyIndex = q.familyIndex;
+					qi.priority	   = q.priority;
+					qi.debugName   = q.debugName;
+
+					vulkan_info.queues.push_back(qi);
+				}
+			}
+			m_shared.m_frame_graph = FG::IFrameGraph::CreateFrameGraph(vulkan_info);
+
+			{
+				auto compiler = FG::MakeShared<FG::VPipelineCompiler>(vulkan_info.instance, vulkan_info.physicalDevice, vulkan_info.device);
+				compiler->SetCompilationFlags(FG::EShaderCompilationFlags::Quiet);
+				m_shared.m_frame_graph->AddPipelineCompiler(compiler);
+			}
+
+			m_shared.m_imgui_renderer.init_shared(imgui_context, m_shared.m_frame_graph);
+			m_shared.m_device = std::move(new_device);
 		}
 		else
 		{
-			// NOTE: not threadsafe
-			ImGuiViewport* main_viewport	= ImGui::GetMainViewport();
-			auto		   primary_instance = (platform_renderer_data*)main_viewport->RendererUserData;
-			assert(primary_instance);
-			new_device->SetInstance(std::move(surface_factory), primary_instance->m_device->GetVkInstance(), required_extensions);
+			m_window_specific.CreateInstance(surface_factory, m_shared.m_device->GetVkInstance());
 		}
 
-		new_device->ChooseHighPerformanceDevice();
-		new_device->CreateLogicalDevice({{VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_SPARSE_BINDING_BIT}, {VK_QUEUE_COMPUTE_BIT}, {VK_QUEUE_TRANSFER_BIT}}, FGC::Default);
-
-		FG::VulkanDeviceInfo vulkan_info;
-		{
-			vulkan_info.instance	   = FGC::BitCast<FG::InstanceVk_t>(new_device->GetVkInstance());
-			vulkan_info.physicalDevice = FGC::BitCast<FG::PhysicalDeviceVk_t>(new_device->GetVkPhysicalDevice());
-			vulkan_info.device		   = FGC::BitCast<FG::DeviceVk_t>(new_device->GetVkDevice());
-
-			vulkan_info.maxStagingBufferMemory = ~FGC::BytesU(0);
-			vulkan_info.stagingBufferSize	   = FGC::BytesU{8 * 1024 * 1024};
-
-			for (auto& q : new_device->GetVkQueues())
-			{
-				FG::VulkanDeviceInfo::QueueInfo qi;
-				qi.handle	   = FGC::BitCast<FG::QueueVk_t>(q.handle);
-				qi.familyFlags = FGC::BitCast<FG::QueueFlagsVk_t>(q.familyFlags);
-				qi.familyIndex = q.familyIndex;
-				qi.priority	   = q.priority;
-				qi.debugName   = q.debugName;
-
-				vulkan_info.queues.push_back(qi);
-			}
-		}
-		m_frame_graph = FG::IFrameGraph::CreateFrameGraph(vulkan_info);
-
-		{
-			auto compiler = FG::MakeShared<FG::VPipelineCompiler>(vulkan_info.instance, vulkan_info.physicalDevice, vulkan_info.device);
-			compiler->SetCompilationFlags(FG::EShaderCompilationFlags::Quiet);
-			m_frame_graph->AddPipelineCompiler(compiler);
-		}
+		m_shared.m_imgui_renderer.init(m_imgui_window, imgui_context, m_shared.m_frame_graph);
 
 		FG::VulkanSwapchainCreateInfo swapchain_info;
 		{
-			swapchain_info.surface		 = FGC::BitCast<FG::SurfaceVk_t>(new_device->GetVkSurface());
+			swapchain_info.surface		 = FGC::BitCast<FG::SurfaceVk_t>(m_window_specific.GetVkSurface());
 			swapchain_info.surfaceSize.x = uint32_t(viewport->Size.x);
 			swapchain_info.surfaceSize.y = uint32_t(viewport->Size.y);
 		}
-		m_swapchain_id = m_frame_graph->CreateSwapchain(swapchain_info);
-
-		m_imgui_renderer.init(imgui_context, m_frame_graph);
-
+		m_swapchain_id			   = m_shared.m_frame_graph->CreateSwapchain(swapchain_info);
 		m_is_primary			   = primary;
-		m_device				   = std::move(new_device);
 		viewport->RendererUserData = this;
 	}
 
@@ -450,34 +477,54 @@ struct platform_renderer_data
 		if (new_width > 0 && new_height > 0)
 		{
 			FG::VulkanSwapchainCreateInfo swapchain_info;
-			swapchain_info.surface		 = FG::BitCast<FG::SurfaceVk_t>(m_device->GetVkSurface());
+			swapchain_info.surface		 = FG::BitCast<FG::SurfaceVk_t>(m_window_specific.GetVkSurface());
 			swapchain_info.surfaceSize.x = new_width;
 			swapchain_info.surfaceSize.y = new_height;
 
-			m_frame_graph->WaitIdle();
+			m_shared.m_frame_graph->WaitIdle();
 
-			m_swapchain_id = m_frame_graph->CreateSwapchain(swapchain_info, m_swapchain_id.Release());
+			m_swapchain_id = m_shared.m_frame_graph->CreateSwapchain(swapchain_info, m_swapchain_id.Release());
 		}
 	}
 
 	void destroy(ImGuiViewport* viewport)
 	{
-		m_imgui_renderer.destroy(m_frame_graph);
-		m_frame_graph->ReleaseResource(m_swapchain_id);
-		m_frame_graph->Deinitialize();
-		m_frame_graph = nullptr;
+		m_shared.m_frame_graph->ReleaseResource(m_swapchain_id);
+		m_shared.m_imgui_renderer.destroy(m_imgui_window, m_shared.m_frame_graph);
 
-		m_device->DestroyLogicalDevice();
-		m_device->DestroyInstance();
-		m_device.reset();
+		if (m_is_primary)
+		{
+			m_shared.m_imgui_renderer.destroy_shared(m_shared.m_frame_graph);
+			m_shared.m_frame_graph->Deinitialize();
+			m_shared.m_frame_graph = nullptr;
+
+			m_shared.m_device->DestroyLogicalDevice();
+			m_shared.m_device->DestroyInstance();
+			m_shared.m_device.reset();
+		}
+	}
+
+	void end_frame()
+	{
+		CHECK_ERR(m_shared.m_frame_graph->Flush());
 	}
 
 	void render_frame(ImGuiContext* ctx, ImGuiViewport* viewport, ImDrawData* draw_data)
 	{
 		if (draw_data->TotalVtxCount > 0)
 		{
-			FG::CommandBuffer cmdbuf = m_frame_graph->Begin(FG::CommandBufferDesc{FG::EQueueType::Graphics});
+			FG::CommandBuffer cmdbuf = m_shared.m_frame_graph->Begin(FG::CommandBufferDesc{FG::EQueueType::Graphics});
 			CHECK_ERR(cmdbuf);
+
+			if (m_is_primary)
+			{
+				m_shared.m_shared_tasks.clear();
+				if (auto new_task = m_shared.m_imgui_renderer.create_font_texture(ctx, cmdbuf); new_task != nullptr)
+				{
+					m_shared.m_shared_tasks.push_back(new_task);
+				}
+			}
+
 			{
 				FG::RawImageID image = cmdbuf->GetSwapchainImage(m_swapchain_id);
 
@@ -486,12 +533,11 @@ struct platform_renderer_data
 																		 .AddViewport(FG::float2{draw_data->DisplaySize.x, draw_data->DisplaySize.y})
 																		 .AddTarget(FG::RenderTargetID::Color_0, image, _clearColor, FG::EAttachmentStoreOp::Store));
 
-				FG::Task draw_ui = m_imgui_renderer.draw(draw_data, ctx, cmdbuf, pass_id);
+				FG::Task draw_ui = m_shared.m_imgui_renderer.draw(m_imgui_window, draw_data, ctx, cmdbuf, pass_id, m_shared.m_shared_tasks);
 				FG::Unused(draw_ui);
-			}
 
-			CHECK_ERR(m_frame_graph->Execute(cmdbuf));
-			CHECK_ERR(m_frame_graph->Flush());
+				CHECK_ERR(m_shared.m_frame_graph->Execute(cmdbuf));
+			}
 		}
 	}
 };
@@ -1220,6 +1266,7 @@ struct gui_primary_context
 		{
 			ImGui::RenderPlatformWindowsDefault(nullptr, nullptr);
 		}
+		main_viewport_data->end_frame();
 	}
 
 	bool init()

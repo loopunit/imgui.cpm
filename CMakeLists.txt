@@ -134,6 +134,8 @@ if(IMGUI_BUILD_APP_FW)
 
     if(IMGUI_BUILD_APP_GLFW_VULKAN)
         file(GLOB app_fw_impl_sources2 
+            "${CMAKE_CURRENT_LIST_DIR}/src/glfw_vulkan/VulkanDevice2.h"
+            "${CMAKE_CURRENT_LIST_DIR}/src/glfw_vulkan/VulkanDevice2.cpp"
             "${CMAKE_CURRENT_LIST_DIR}/src/glfw_vulkan/main.cpp")
 
         list(APPEND app_fw_impl_sources ${app_fw_impl_sources2})
