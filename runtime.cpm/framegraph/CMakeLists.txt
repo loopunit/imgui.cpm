@@ -38,6 +38,8 @@ configure_file(patch_extensions_pipeline_compiler_CMakeLists.txt    ${FrameGraph
 configure_file(patch_extensions_framework_CMakeLists.txt            ${FrameGraph_SOURCE_DIR}/extensions/framework/CMakeLists.txt COPYONLY)
 configure_file(patch_revision.h                                     ${FrameGraph_SOURCE_DIR}/extensions/pipeline_compiler/glslang/Include/revision.h COPYONLY)
 configure_file(patch_VulkanSwapchain.h                              ${FrameGraph_SOURCE_DIR}/extensions/framework/Vulkan/VulkanSwapchain.h COPYONLY)
+configure_file(patch_project_template.cmake.txt                     ${FrameGraph_SOURCE_DIR}/cmake/patch_project_template.cmake COPYONLY)
+
 
 ExternalProject_Add(FrameGraph_cpm_runtime
     PREFIX "${CMAKE_BINARY_DIR}"

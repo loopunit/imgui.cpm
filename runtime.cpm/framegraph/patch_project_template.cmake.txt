@@ -1,0 +1,40 @@
+
+set( CMAKE_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/cmake" )
+file( GLOB_RECURSE CMAKE_SOURCES "${CMAKE_FOLDER}/*.*" )
+
+add_library( "ProjectTemplate" STATIC EXCLUDE_FROM_ALL ${CMAKE_SOURCES} )
+set_property( TARGET "ProjectTemplate" PROPERTY FOLDER "Utils" )
+source_group( TREE "${CMAKE_FOLDER}/.." FILES ${CMAKE_SOURCES} )
+
+#target_compile_definitions( "ProjectTemplate" PUBLIC ${FG_COMPILER_DEFINITIONS} )
+target_link_libraries( "ProjectTemplate" PUBLIC "${FG_LINK_LIBRARIES}" )
+	
+target_compile_definitions( "ProjectTemplate" 
+	PUBLIC 
+		${FG_COMPILER_DEFINITIONS}
+		COMPILER_MSVC 1
+		${TARGET_PLATFORM} 1
+		WINDOWS_TARGET_VERSION ${WINDOWS_TARGET_VERSION}
+		PLATFORM_NAME ${CMAKE_SYSTEM_NAME}
+		PLATFORM_CPU_NAME ${CMAKE_SYSTEM_PROCESSOR}
+		PLATFORM_BITS ${PLATFORM_BITS}
+)
+
+set_target_properties( "ProjectTemplate" PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES )
+target_compile_features( "ProjectTemplate" PUBLIC cxx_std_17 )
+
+if (${FG_CI_BUILD})
+	target_compile_definitions( "ProjectTemplate" PUBLIC "FG_CI_BUILD" )
+endif ()
+
+if (${FG_ENABLE_MEMLEAK_CHECKS})
+	target_compile_definitions( "ProjectTemplate" PUBLIC "FG_ENABLE_MEMLEAK_CHECKS" )
+endif ()
+
+if (${FG_ALLOW_GPL})
+	target_compile_definitions( "ProjectTemplate" PUBLIC "FG_ALLOW_GPL" )
+endif ()
+
+if (${FG_NO_EXCEPTIONS})
+	target_compile_definitions( "ProjectTemplate" PUBLIC "FG_NO_EXCEPTIONS" )
+endif ()
