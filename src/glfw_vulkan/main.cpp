@@ -31,23 +31,23 @@
 #define HAS_WIN32_IME 0
 #endif
 
+struct imgui_renderer_window
+{
+	FG::BufferID m_vertex_buffer;
+	FG::BufferID m_index_buffer;
+	FG::BufferID m_uniform_buffer;
+
+	FG::BytesU m_vertex_buf_size;
+	FG::BytesU m_index_buf_size;
+
+	FG::PipelineResources m_resources;
+};
+
 struct imgui_renderer
 {
 	FG::ImageID		m_font_texture;
 	FG::SamplerID	m_font_sampler;
 	FG::GPipelineID m_pipeline;
-
-	struct per_window
-	{
-		FG::BufferID m_vertex_buffer;
-		FG::BufferID m_index_buffer;
-		FG::BufferID m_uniform_buffer;
-
-		FG::BytesU m_vertex_buf_size;
-		FG::BytesU m_index_buf_size;
-
-		FG::PipelineResources _resources;
-	};
 
 	bool init_shared(ImGuiContext* _context, const FG::FrameGraph& fg)
 	{
@@ -63,13 +63,13 @@ struct imgui_renderer
 		return true;
 	}
 
-	bool init(per_window& pw, ImGuiContext* _context, const FG::FrameGraph& fg)
+	bool init(imgui_renderer_window& pw, ImGuiContext* _context, const FG::FrameGraph& fg)
 	{
 		CHECK_ERR(init_pipeline(pw, fg));
 		return true;
 	}
 
-	void destroy(per_window& pw, const FG::FrameGraph& fg)
+	void destroy(imgui_renderer_window& pw, const FG::FrameGraph& fg)
 	{
 		if (fg)
 		{
@@ -89,7 +89,10 @@ struct imgui_renderer
 		}
 	}
 
-	FG::Task draw(per_window& pw, ImDrawData* draw_data, ImGuiContext* _context, const FG::CommandBuffer& cmdbuf, FG::LogicalPassID passId, FG::ArrayView<FG::Task> dependencies)
+	template<typename T_USERDRAW_HANDLER>
+	FG::Task draw(
+		imgui_renderer_window& pw, ImDrawData* draw_data, ImGuiContext* _context, const FG::CommandBuffer& cmdbuf, FG::LogicalPassID pass_id, FG::ArrayView<FG::Task> dependencies,
+		T_USERDRAW_HANDLER userdraw_handler = [](const ImDrawList& cmd_list, const ImDrawCmd& cmd) -> FG::Task { return nullptr; })
 	{
 		CHECK_ERR(cmdbuf and _context);
 
@@ -97,10 +100,13 @@ struct imgui_renderer
 
 		int fb_width  = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
 		int fb_height = (int)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
-		if (fb_width <= 0 || fb_height <= 0)
-			return nullptr;
 
-		FG::SubmitRenderPass submit{passId};
+		if (fb_width <= 0 || fb_height <= 0)
+		{
+			return nullptr;
+		}
+
+		FG::SubmitRenderPass submit{pass_id};
 
 		submit.DependsOn(create_buffers(pw, draw_data, _context, cmdbuf));
 		submit.DependsOn(update_uniform_buffer(pw, draw_data, _context, cmdbuf));
@@ -122,8 +128,8 @@ struct imgui_renderer
 		ImVec2 clip_off	  = draw_data->DisplayPos;		 // (0,0) unless using multi-viewports
 		ImVec2 clip_scale = draw_data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 
-		pw._resources.BindBuffer(FG::UniformID("uPushConstant"), pw.m_uniform_buffer);
-		pw._resources.BindTexture(FG::UniformID("sTexture"), m_font_texture, m_font_sampler);
+		pw.m_resources.BindBuffer(FG::UniformID("uPushConstant"), pw.m_uniform_buffer);
+		pw.m_resources.BindTexture(FG::UniformID("sTexture"), m_font_texture, m_font_sampler);
 
 		for (int i = 0; i < draw_data->CmdListsCount; ++i)
 		{
@@ -135,7 +141,14 @@ struct imgui_renderer
 
 				if (cmd.UserCallback)
 				{
-					cmd.UserCallback(&cmd_list, &cmd);
+					if (cmd.UserCallback == ImDrawCallback_ResetRenderState)
+					{
+						// state is bound to the draw tasks, so this isn't needed?
+					}
+					else
+					{
+						submit.DependsOn(userdraw_handler(cmd_list, cmd));
+					}
 				}
 				else
 				{
@@ -149,24 +162,28 @@ struct imgui_renderer
 					{
 						// Negative offsets are illegal for vkCmdSetScissor
 						if (scissor.left < 0)
+						{
 							scissor.left = 0;
+						}
 
 						if (scissor.top < 0)
+						{
 							scissor.top = 0;
+						}
 
 						cmdbuf->AddTask(
-							passId, FG::DrawIndexed{}
-										.SetPipeline(m_pipeline)
-										.AddResources(FG::DescriptorSetID{"0"}, pw._resources)
-										.AddVertexBuffer(FG::VertexBufferID(), pw.m_vertex_buffer)
-										.SetVertexInput(vert_input)
-										.SetTopology(FG::EPrimitive::TriangleList)
-										.SetIndexBuffer(pw.m_index_buffer, (FG::BytesU)0, FG::EIndex::UShort)
-										.AddColorBuffer(FG::RenderTargetID::Color_0, FG::EBlendFactor::SrcAlpha, FG::EBlendFactor::OneMinusSrcAlpha, FG::EBlendOp::Add)
-										.SetDepthTestEnabled(false)
-										.SetCullMode(FG::ECullMode::None)
-										.Draw(cmd.ElemCount, 1, idx_offset, int(vtx_offset), 0)
-										.AddScissor(scissor));
+							pass_id, FG::DrawIndexed{}
+										 .SetPipeline(m_pipeline)
+										 .AddResources(FG::DescriptorSetID{"0"}, pw.m_resources)
+										 .AddVertexBuffer(FG::VertexBufferID(), pw.m_vertex_buffer)
+										 .SetVertexInput(vert_input)
+										 .SetTopology(FG::EPrimitive::TriangleList)
+										 .SetIndexBuffer(pw.m_index_buffer, (FG::BytesU)0, FG::EIndex::UShort)
+										 .AddColorBuffer(FG::RenderTargetID::Color_0, FG::EBlendFactor::SrcAlpha, FG::EBlendFactor::OneMinusSrcAlpha, FG::EBlendOp::Add)
+										 .SetDepthTestEnabled(false)
+										 .SetCullMode(FG::ECullMode::None)
+										 .Draw(cmd.ElemCount, 1, idx_offset, int(vtx_offset), 0)
+										 .AddScissor(scissor));
 					}
 				}
 				idx_offset += cmd.ElemCount;
@@ -233,9 +250,9 @@ struct imgui_renderer
 		return true;
 	}
 
-	bool init_pipeline(per_window& pw, const FG::FrameGraph& fg)
+	bool init_pipeline(imgui_renderer_window& pw, const FG::FrameGraph& fg)
 	{
-		CHECK_ERR(fg->InitPipelineResources(m_pipeline, FG::DescriptorSetID("0"), OUT pw._resources));
+		CHECK_ERR(fg->InitPipelineResources(m_pipeline, FG::DescriptorSetID("0"), OUT pw.m_resources));
 		return true;
 	}
 
@@ -276,7 +293,7 @@ struct imgui_renderer
 		return cmdbuf->AddTask(FG::UpdateImage{}.SetImage(m_font_texture).SetData(pixels, upload_size, FG::uint2{FG::int2{width, height}}));
 	}
 
-	ND_ FG::Task create_buffers(per_window& pw, ImDrawData* draw_data, ImGuiContext* _context, const FG::CommandBuffer& cmdbuf)
+	ND_ FG::Task create_buffers(imgui_renderer_window& pw, ImDrawData* draw_data, ImGuiContext* _context, const FG::CommandBuffer& cmdbuf)
 	{
 		FG::FrameGraph fg		   = cmdbuf->GetFrameGraph();
 		FG::BytesU	   vertex_size = draw_data->TotalVtxCount * FG::SizeOf<ImDrawVert>;
@@ -319,7 +336,7 @@ struct imgui_renderer
 		return last_task;
 	}
 
-	ND_ FG::Task update_uniform_buffer(per_window& pw, ImDrawData* draw_data, ImGuiContext* _context, const FG::CommandBuffer& cmdbuf)
+	ND_ FG::Task update_uniform_buffer(imgui_renderer_window& pw, ImDrawData* draw_data, ImGuiContext* _context, const FG::CommandBuffer& cmdbuf)
 	{
 		if (not pw.m_uniform_buffer)
 		{
@@ -390,7 +407,7 @@ struct platform_renderer_data
 
 	FGC::VulkanDevice2::window_specific m_window_specific;
 	FG::SwapchainID						m_swapchain_id;
-	imgui_renderer::per_window			m_imgui_window;
+	imgui_renderer_window				m_imgui_window;
 
 	struct shared_data
 	{
@@ -509,6 +526,26 @@ struct platform_renderer_data
 		CHECK_ERR(m_shared.m_frame_graph->Flush());
 	}
 
+	struct mutable_userdata
+	{
+		const FG::CommandBuffer* m_cmdbuf;
+		const FG::LogicalPassID	 m_pass_id;
+		void*					 m_original_user_data;
+		FG::Task				 m_task_result;
+
+		mutable_userdata(const FG::CommandBuffer* cmdbuf, const FG::LogicalPassID pass_id) : m_cmdbuf{cmdbuf}, m_pass_id{pass_id}, m_original_user_data{nullptr} {}
+
+		FG::Task call(const ImDrawList& cmd_list, const ImDrawCmd& cmd)
+		{
+			m_original_user_data = cmd.UserCallbackData;
+
+			ImDrawCmd tmp		 = cmd;
+			tmp.UserCallbackData = this;
+			cmd.UserCallback(&cmd_list, &tmp);
+			return m_task_result;
+		}
+	};
+
 	void render_frame(ImGuiContext* ctx, ImGuiViewport* viewport, ImDrawData* draw_data)
 	{
 		if (draw_data->TotalVtxCount > 0)
@@ -532,8 +569,9 @@ struct platform_renderer_data
 				FG::LogicalPassID pass_id = cmdbuf->CreateRenderPass(FG::RenderPassDesc{FG::int2{FG::float2{draw_data->DisplaySize.x, draw_data->DisplaySize.y}}}
 																		 .AddViewport(FG::float2{draw_data->DisplaySize.x, draw_data->DisplaySize.y})
 																		 .AddTarget(FG::RenderTargetID::Color_0, image, _clearColor, FG::EAttachmentStoreOp::Store));
-
-				FG::Task draw_ui = m_shared.m_imgui_renderer.draw(m_imgui_window, draw_data, ctx, cmdbuf, pass_id, m_shared.m_shared_tasks);
+				FG::Task		  draw_ui = m_shared.m_imgui_renderer.draw(
+					 m_imgui_window, draw_data, ctx, cmdbuf, pass_id, m_shared.m_shared_tasks,
+					 [&cmdbuf, &pass_id](const ImDrawList& cmd_list, const ImDrawCmd& cmd) -> FG::Task { return mutable_userdata(&cmdbuf, pass_id).call(cmd_list, cmd); });
 				FG::Unused(draw_ui);
 
 				CHECK_ERR(m_shared.m_frame_graph->Execute(cmdbuf));
