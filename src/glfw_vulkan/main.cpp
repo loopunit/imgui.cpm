@@ -1378,3 +1378,9 @@ void end_frame_gui_glfw_vulkan(ImVec4 clear_color)
 {
 	gui_primary_context::instance->end_frame(clear_color);
 }
+
+FG::IFrameGraph* imgui_app_fw::get_framegraph_instance()
+{
+	assert(ImGui::GetMainViewport() && ImGui::GetMainViewport()->RendererUserData);
+	return platform_renderer_data::m_shared.m_frame_graph.get();
+}

@@ -30,4 +30,6 @@ namespace imgui_app_fw
 			return reinterpret_cast<mutable_userdata*>(cmd->UserCallbackData);
 		}
 	};
+
+	FG::IFrameGraph* get_framegraph_instance();
 }

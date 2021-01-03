@@ -2,9 +2,9 @@ include(ExternalProject)
 include(cmake/CPM.cmake)
 
 set(FrameGraph_cpm_toolchain_exists false)
-#if(EXISTS "${CPM_RUNTIME_CACHE}/FrameGraph" AND IS_DIRECTORY "${CPM_RUNTIME_CACHE}/FrameGraph")
-#    set(FrameGraph_cpm_toolchain_exists true)
-#endif()
+if(EXISTS "${CPM_RUNTIME_CACHE}/FrameGraph" AND IS_DIRECTORY "${CPM_RUNTIME_CACHE}/FrameGraph")
+    set(FrameGraph_cpm_toolchain_exists true)
+endif()
 
 if(NOT FrameGraph_cpm_toolchain_exists)
     execute_process(
