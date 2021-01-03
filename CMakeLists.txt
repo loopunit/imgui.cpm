@@ -27,9 +27,20 @@ CPMAddPackage(
 ####
 
 if(IMGUI_BUILD_APP_GLFW_VULKAN)
+    include(toolchain.cpm/python.cmake)
+    include(toolchain.cpm/spirv_headers.cmake)
+    include(toolchain.cpm/spirv_tools.cmake)
+    include(toolchain.cpm/spirv_cross.cmake)
+    include(toolchain.cpm/glslang.cmake)
+    include(toolchain.cpm/basis_universal.cmake)
+
+    set(Python3_ROOT_DIR ${CPM_TOOLCHAIN_CACHE}/python)
+    find_package(Python3 COMPONENTS Interpreter Development)
+
     include(runtime.cpm/glslang.cmake)
     include(runtime.cpm/framegraph.cmake)
     include(runtime.cpm/glfw.cmake)
+    include(runtime.cpm/basis_universal.cmake)
 endif()
 
 ####
@@ -190,7 +201,7 @@ if(IMGUI_BUILD_APP_FW)
     if(IMGUI_BUILD_APP_GLFW_VULKAN)
         target_link_libraries(imgui_app_fw
             PUBLIC
-                glfw_cpm framegraph_cpm glslang_cpm)
+                glfw_cpm framegraph_cpm glslang_cpm basis_universal_cpm)
 
         target_compile_definitions(imgui_app_fw
             PUBLIC

@@ -1,0 +1,56 @@
+project(basisu)
+
+cmake_minimum_required(VERSION 3.0)
+
+
+option(BASIS_BUILD_TOOL "Build basisu" ON)
+option(BASIS_BUILD_LIBRARY "Build basisu" OFF)
+
+include(GNUInstallDirs)
+
+if(${BASIS_BUILD_TOOL})
+	set(BASISU_SRC_LIST ${COMMON_SRC_LIST} 
+		basisu_tool.cpp
+		encoder/basisu_backend.cpp
+		encoder/basisu_basis_file.cpp
+		encoder/basisu_comp.cpp
+		encoder/basisu_enc.cpp
+		encoder/basisu_etc.cpp
+		encoder/basisu_frontend.cpp
+		encoder/basisu_global_selector_palette_helpers.cpp
+		encoder/basisu_gpu_texture.cpp
+		encoder/basisu_pvrtc1_4.cpp
+		encoder/basisu_resampler.cpp
+		encoder/basisu_resample_filters.cpp
+		encoder/basisu_ssim.cpp
+		encoder/basisu_astc_decomp.cpp
+		encoder/basisu_uastc_enc.cpp
+		encoder/basisu_bc7enc.cpp
+		encoder/lodepng.cpp
+		encoder/apg_bmp.c
+		encoder/jpgd.cpp
+		transcoder/basisu_transcoder.cpp)
+
+	add_executable(basisu ${BASISU_SRC_LIST})
+
+	install(TARGETS basisu DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
+if(${BASIS_BUILD_LIBRARY})
+	set(BASIS_SRC_LIST ${COMMON_SRC_LIST} transcoder/basisu_transcoder.cpp)
+
+	add_library(basis STATIC ${BASIS_SRC_LIST})
+	target_include_directories(basis 
+		PUBLIC 
+			$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/transcoder>
+			$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+	set_target_properties(basis PROPERTIES 
+		PUBLIC_HEADER "transcoder/basisu.h;transcoder/basisu_file_headers.h;transcoder/basisu_global_selector_cb.h;transcoder/basisu_global_selector_palette.h;transcoder/basisu_transcoder.h;transcoder/basisu_transcoder_internal.h;transcoder/basisu_transcoder_uastc.h")
+			
+	install(TARGETS basis
+		LIBRARY
+			DESTINATION ${CMAKE_INSTALL_LIBDIR}
+		PUBLIC_HEADER
+			DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+endif()
