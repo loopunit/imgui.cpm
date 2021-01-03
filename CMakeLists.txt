@@ -222,8 +222,11 @@ if(IMGUI_BUILD_EXAMPLES)
     file(GLOB example_sources 
         ${CMAKE_CURRENT_LIST_DIR}/examples/main.cpp)
 
+
     add_executable(imgui_example
         ${example_sources})
+    
+    set_target_properties(imgui_example PROPERTIES CXX_STANDARD 17)
     
     target_include_directories(imgui_example 
         PRIVATE 

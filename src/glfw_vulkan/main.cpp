@@ -526,26 +526,6 @@ struct platform_renderer_data
 		CHECK_ERR(m_shared.m_frame_graph->Flush());
 	}
 
-	struct mutable_userdata
-	{
-		const FG::CommandBuffer* m_cmdbuf;
-		const FG::LogicalPassID	 m_pass_id;
-		void*					 m_original_user_data;
-		FG::Task				 m_task_result;
-
-		mutable_userdata(const FG::CommandBuffer* cmdbuf, const FG::LogicalPassID pass_id) : m_cmdbuf{cmdbuf}, m_pass_id{pass_id}, m_original_user_data{nullptr} {}
-
-		FG::Task call(const ImDrawList& cmd_list, const ImDrawCmd& cmd)
-		{
-			m_original_user_data = cmd.UserCallbackData;
-
-			ImDrawCmd tmp		 = cmd;
-			tmp.UserCallbackData = this;
-			cmd.UserCallback(&cmd_list, &tmp);
-			return m_task_result;
-		}
-	};
-
 	void render_frame(ImGuiContext* ctx, ImGuiViewport* viewport, ImDrawData* draw_data)
 	{
 		if (draw_data->TotalVtxCount > 0)
@@ -571,7 +551,7 @@ struct platform_renderer_data
 																		 .AddTarget(FG::RenderTargetID::Color_0, image, _clearColor, FG::EAttachmentStoreOp::Store));
 				FG::Task		  draw_ui = m_shared.m_imgui_renderer.draw(
 					 m_imgui_window, draw_data, ctx, cmdbuf, pass_id, m_shared.m_shared_tasks,
-					 [&cmdbuf, &pass_id](const ImDrawList& cmd_list, const ImDrawCmd& cmd) -> FG::Task { return mutable_userdata(&cmdbuf, pass_id).call(cmd_list, cmd); });
+					 [&cmdbuf, &pass_id](const ImDrawList& cmd_list, const ImDrawCmd& cmd) -> FG::Task { return imgui_app_fw::mutable_userdata(&cmdbuf, pass_id).call(cmd_list, cmd); });
 				FG::Unused(draw_ui);
 
 				CHECK_ERR(m_shared.m_frame_graph->Execute(cmdbuf));
