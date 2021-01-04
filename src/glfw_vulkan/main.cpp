@@ -31,6 +31,8 @@
 #define HAS_WIN32_IME 0
 #endif
 
+#include <basisu_transcoder.h>
+
 struct imgui_renderer_window
 {
 	FG::BufferID m_vertex_buffer;
@@ -1335,6 +1337,8 @@ struct gui_primary_context
 		// io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
 		// ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
 		// IM_ASSERT(font != nullptr);
+
+		basist::basisu_transcoder_init();
 
 		return true;
 	}

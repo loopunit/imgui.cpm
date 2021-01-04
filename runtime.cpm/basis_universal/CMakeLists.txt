@@ -22,7 +22,8 @@ CPMAddPackage(
 	GIT_TAG ef70ddd7c92222a6369f8b296af42b8f9699708b
     DOWNLOAD_ONLY true)
 
-configure_file(patch_CMakeLists.txt                                 ${basis_universal_SOURCE_DIR}/CMakeLists.txt COPYONLY)
+configure_file(patch_CMakeLists.txt                           ${basis_universal_SOURCE_DIR}/CMakeLists.txt COPYONLY)
+configure_file(patch_basisu.h                                 ${basis_universal_SOURCE_DIR}/transcoder/basisu.h COPYONLY)
 
 ExternalProject_Add(basis_universal_cpm_runtime
     PREFIX "${CMAKE_BINARY_DIR}"
