@@ -412,7 +412,5 @@ namespace FGC
 		ASSERT(uint(rhs) < 32);
 		return BitCast<VQueueMask>(uint(lhs) | (1u << (uint(rhs) & 31)));
 	}
-
 } // namespace FGC
-
 #endif // FG_ENABLE_VULKAN

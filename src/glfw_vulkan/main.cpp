@@ -5,6 +5,7 @@
 #include "VulkanDevice2.h"
 #include <Framework/Vulkan/VulkanSwapchain.h>
 #include <framegraph/FG.h>
+#include <framegraph/Shared/EnumUtils.h>
 #include <pipeline_compiler/VPipelineCompiler.h>
 
 #include <imgui.h>
@@ -33,6 +34,343 @@
 
 #include <basisu_transcoder.h>
 
+#include <fstream>
+#include <filesystem>
+#include <map>
+
+namespace FG
+{
+	class IntermImage final : public std::enable_shared_from_this<IntermImage>
+	{
+		// types
+	public:
+		struct Level
+		{
+			uint3		   dimension;
+			EPixelFormat   format = Default;
+			ImageLayer	   layer  = 0_layer;
+			MipmapLevel	   mipmap = 0_mipmap;
+			BytesU		   rowPitch;
+			BytesU		   slicePitch;
+			Array<uint8_t> pixels;
+		};
+
+		using ArrayLayers_t = Array<Level>; // size == 1 for non-array images
+		using Mipmaps_t		= Array<ArrayLayers_t>;
+
+		// variables
+	private:
+		String _srcPath;
+
+		Mipmaps_t _data; // mipmaps[] { layers[] { level } }
+		EImage	  _imageType = Default;
+
+		bool _immutable = false;
+
+		// methods
+	public:
+		IntermImage() {}
+		explicit IntermImage(const ImageView& view)
+		{
+			_imageType = view.Dimension().z > 1 ? EImage_3D : view.Dimension().y > 1 ? EImage_2D : EImage_1D;
+
+			_data.resize(1);
+			_data[0].resize(1);
+
+			auto& level		 = _data[0][0];
+			level.dimension	 = Max(1u, view.Dimension());
+			level.format	 = view.Format();
+			level.layer		 = 0_layer;
+			level.mipmap	 = 0_mipmap;
+			level.rowPitch	 = view.RowPitch();
+			level.slicePitch = view.SlicePitch();
+			level.pixels.resize(size_t(level.slicePitch * level.dimension.z));
+
+			BytesU offset = 0_b;
+			for (auto& part : view.Parts())
+			{
+				BytesU size = ArraySizeOf(part);
+				std::memcpy(level.pixels.data() + offset, part.data(), size_t(size));
+				offset += size;
+			}
+
+			ASSERT(offset == ArraySizeOf(level.pixels));
+			STATIC_ASSERT(sizeof(level.pixels[0]) == sizeof(view.Parts()[0][0]));
+		}
+
+		explicit IntermImage(StringView path) : _srcPath{path} {}
+		IntermImage(Mipmaps_t&& data, EImage type, StringView path = Default) : _srcPath{path}, _data{std::move(data)}, _imageType{type} {}
+
+		void MakeImmutable()
+		{
+			_immutable = true;
+		}
+
+		void ReleaseData()
+		{
+			Mipmaps_t temp;
+			std::swap(temp, _data);
+		}
+
+		void SetData(Mipmaps_t&& data, EImage type)
+		{
+			ASSERT(not _immutable);
+			_data	   = std::move(data);
+			_imageType = type;
+		}
+
+		ND_ StringView GetPath() const
+		{
+			return _srcPath;
+		}
+
+		ND_ bool IsImmutable() const
+		{
+			return _immutable;
+		}
+
+		ND_ Mipmaps_t const& GetData() const
+		{
+			return _data;
+		}
+
+		ND_ EImage GetType() const
+		{
+			return _imageType;
+		}
+
+		ND_ EImageDim GetImageDim() const
+		{
+			switch (_imageType)
+			{
+			case EImage_1D:
+			case EImage_1DArray:
+				return EImageDim_1D;
+			case EImage_2D:
+			case EImage_2DArray:
+			case EImage_Cube:
+			case EImage_CubeArray:
+				return EImageDim_2D;
+			case EImage_3D:
+				return EImageDim_3D;
+			}
+			return Default;
+		}
+	};
+} // namespace FG
+
+struct basis_cache
+{
+	struct basis_texture
+	{
+		basist::basisu_image_info info;
+		basist::basisu_file_info  file_info;
+
+		basist::transcoder_texture_format format;
+		uint32_t						  block_width;
+		uint32_t						  block_height;
+		uint32_t						  bytes_per_block;
+
+		struct level
+		{
+			uint32_t					 width;
+			uint32_t					 height;
+			uint32_t					 blocks;
+			std::unique_ptr<std::byte[]> data;
+		};
+		std::vector<std::unique_ptr<level>> image_levels;
+	};
+
+	std::unique_ptr<basist::etc1_global_selector_codebook> m_basis_codebook;
+	std::map<std::wstring, std::unique_ptr<basis_texture>> m_basis_cache;
+	std::map<std::wstring, FG::ImageID>					   m_texture_cache;
+
+	basis_cache()
+	{
+		m_basis_codebook.reset(new basist::etc1_global_selector_codebook(basist::g_global_selector_cb_size, basist::g_global_selector_cb));
+	}
+
+	~basis_cache()
+	{
+		m_basis_cache.clear();
+	}
+
+	void cache_basis_texture(std::wstring cache_key, uint32_t file_size, std::unique_ptr<std::byte[]> file_mem, const basist::transcoder_texture_format dest_format)
+	{
+		if (basist::basisu_transcoder transcoder(m_basis_codebook.get()); transcoder.validate_header(file_mem.get(), file_size))
+		{
+			auto new_texture			 = std::make_unique<basis_texture>();
+			new_texture->format			 = dest_format;
+			new_texture->bytes_per_block = basist::basis_get_bytes_per_block_or_pixel(dest_format);
+			new_texture->block_width	 = basist::basis_get_block_width(dest_format);
+			new_texture->block_height	 = basist::basis_get_block_height(dest_format);
+
+			if (transcoder.get_image_info(file_mem.get(), file_size, new_texture->info, 0))
+			{
+				transcoder.get_file_info(file_mem.get(), file_size, new_texture->file_info);
+
+				if (transcoder.start_transcoding(file_mem.get(), file_size))
+				{
+					for (uint32_t level = 0; level < new_texture->info.m_total_levels; ++level)
+					{
+						auto new_level = std::make_unique<basis_texture::level>();
+
+						if (transcoder.get_image_level_desc(file_mem.get(), file_size, 0, level, new_level->width, new_level->height, new_level->blocks))
+						{
+							new_level->data.reset(new std::byte[new_level->blocks * new_texture->bytes_per_block]);
+							transcoder.transcode_image_level(file_mem.get(), file_size, 0, level, new_level->data.get(), new_level->blocks, dest_format);
+							new_texture->image_levels.emplace_back(std::move(new_level));
+						}
+						else
+						{
+							// TODO: error!
+						}
+					}
+
+					m_basis_cache.emplace(std::pair<std::wstring, std::unique_ptr<basis_texture>>(std::move(cache_key), std::move(new_texture)));
+					transcoder.stop_transcoding();
+				}
+				else
+				{
+					// TODO: error!
+				}
+			}
+			else
+			{
+				// TODO: error!
+			}
+		}
+		else
+		{
+			// TODO: error!
+		}
+	}
+
+	void cache_basis_texture(const std::filesystem::path& p, const basist::transcoder_texture_format dest_format)
+	{
+		if (std::filesystem::exists(p))
+		{
+			if (auto file_size = std::filesystem::file_size(p); file_size > 0)
+			{
+				auto native_path = p.native();
+				if (std::FILE* f = _wfopen(native_path.c_str(), L"rb"); f != nullptr)
+				{
+					auto file_mem = std::unique_ptr<std::byte[]>(new std::byte[file_size]);
+					if (auto read_size = std::fread(file_mem.get(), 1, file_size, f); read_size == file_size)
+					{
+						cache_basis_texture(std::move(native_path), static_cast<uint32_t>(file_size), std::move(file_mem), dest_format);
+					}
+					else
+					{
+						// TODO: error!
+					}
+					std::fclose(f);
+				}
+				else
+				{
+					// TODO: error!
+				}
+			}
+			else
+			{
+				// TODO: error!
+			}
+		}
+		else
+		{
+			// TODO: error!
+		}
+	}
+
+	// clang-format off
+	#define BASIS_FG_PAIR( _visit_ ) \
+		_visit_( basist::transcoder_texture_format::cTFBC1_RGB,			FG::EPixelFormat::BC1_RGB8_UNorm ) \
+		_visit_( basist::transcoder_texture_format::cTFBC3_RGBA,		FG::EPixelFormat::BC3_RGBA8_UNorm ) \
+		_visit_( basist::transcoder_texture_format::cTFBC4_R,			FG::EPixelFormat::BC4_R8_UNorm ) \
+		_visit_( basist::transcoder_texture_format::cTFBC5_RG,			FG::EPixelFormat::BC5_RG8_UNorm ) \
+		_visit_( basist::transcoder_texture_format::cTFBC7_RGBA,		FG::EPixelFormat::BC7_RGBA8_UNorm ) \
+		_visit_( basist::transcoder_texture_format::cTFETC2_EAC_R11,	FG::EPixelFormat::EAC_R11_UNorm ) \
+		_visit_( basist::transcoder_texture_format::cTFETC2_EAC_RG11,	FG::EPixelFormat::EAC_RG11_UNorm ) \
+		_visit_( basist::transcoder_texture_format::cTFASTC_4x4_RGBA,	FG::EPixelFormat::ASTC_RGBA_4x4 ) \
+		_visit_( basist::transcoder_texture_format::cTFRGBA32,			FG::EPixelFormat::RGBA32U ) \
+		_visit_( basist::transcoder_texture_format::cTFRGB565,			FG::EPixelFormat::RGB_5_6_5_UNorm ) \
+		_visit_( basist::transcoder_texture_format::cTFRGBA4444,		FG::EPixelFormat::RGBA4_UNorm )
+	// clang-format on
+
+	inline std::optional<FG::EPixelFormat> convert_format(const basist::transcoder_texture_format fmt)
+	{
+		switch (fmt)
+		{
+			// clang-format off
+#define BASIS_TO_FG_VISITOR(_basis_, _fg_fmt_)	\
+		case _basis_:							\
+			return _fg_fmt_;					\
+/**/
+		BASIS_FG_PAIR(BASIS_TO_FG_VISITOR)
+#undef BASIS_TO_FG_VISITOR
+			// clang-format on
+		}
+		return std::nullopt;
+	}
+
+	std::optional<FG::Task> load_texture_from_cache(const std::wstring& cache_key, const FG::CommandBuffer& cmdbuf)
+	{
+		if (auto itor = m_basis_cache.find(cache_key); itor != m_basis_cache.end())
+		{
+			if (auto& tex = std::get<1>(*itor); auto fg_format = convert_format(tex->format))
+			{
+				const bool	   is_cube		= false;
+				const auto	   mipmap_count = static_cast<FG::uint>(tex->image_levels.size());
+				const FG::uint array_layers(1);
+				FG::uint3	   dim		= {tex->image_levels[0]->width, tex->image_levels[0]->height, 1};
+				FG::EImage	   img_type = FG::EImage_2D;
+
+				auto& fg_info{FG::EPixelFormat_GetInfo(*fg_format)};
+				auto  new_img = cmdbuf->GetFrameGraph()->CreateImage(
+					 FG::ImageDesc{}.SetDimension(dim).SetFormat(FG::EPixelFormat::RGBA8_UNorm).SetUsage(FG::EImageUsage::Sampled | FG::EImageUsage::TransferDst), FG::Default);
+
+				FG::Task curr_task = nullptr;
+
+				for (FG::uint lvl = 0; lvl < tex->image_levels.size(); ++lvl)
+				{
+					FG::ArrayView<uint8_t> data_view{(uint8_t*)tex->image_levels[lvl]->data.get(), tex->image_levels[lvl]->blocks * tex->bytes_per_block};
+
+					FGC::BytesU bytes_pitch = static_cast<FGC::BytesU>(tex->image_levels[lvl]->width / tex->block_width * tex->bytes_per_block);
+
+					curr_task = cmdbuf->AddTask(
+						FG::UpdateImage{}
+							.SetImage(new_img, {0, 0, 0}, FG::MipmapLevel(lvl))
+							.SetData(data_view, FGC::uint3{FGC::uint(tex->image_levels[lvl]->width), FGC::uint(tex->image_levels[lvl]->height), FGC::uint(0)}, bytes_pitch)
+							.DependsOn(curr_task));
+				}
+
+				m_texture_cache.emplace(std::pair<std::wstring, FG::ImageID>(cache_key, std::move(new_img)));
+				return curr_task;
+			}
+			else
+			{
+				// TODO: error!
+			}
+		}
+
+		return std::nullopt;
+	}
+
+	std::optional<FG::ImageID> acquire_texture(const std::wstring& cache_key, const FG::CommandBuffer& cmdbuf)
+	{
+		if (auto itor = m_texture_cache.find(cache_key); itor != m_texture_cache.end() && cmdbuf->GetFrameGraph()->IsResourceAlive(itor->second))
+		{
+			return cmdbuf->GetFrameGraph()->AcquireResource(itor->second);
+		}
+		return std::nullopt;
+	}
+
+	void release_texture(FG::ImageID& img, const FG::CommandBuffer& cmdbuf) 
+	{
+		cmdbuf->GetFrameGraph()->ReleaseResource(img);
+	}
+};
+
 struct imgui_renderer_window
 {
 	FG::BufferID m_vertex_buffer;
@@ -43,6 +381,8 @@ struct imgui_renderer_window
 	FG::BytesU m_index_buf_size;
 
 	FG::PipelineResources m_resources;
+
+	std::map<ImTextureID, FG::ImageID> m_texture_cache;
 };
 
 struct imgui_renderer
@@ -131,7 +471,6 @@ struct imgui_renderer
 		ImVec2 clip_scale = draw_data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 
 		pw.m_resources.BindBuffer(FG::UniformID("uPushConstant"), pw.m_uniform_buffer);
-		pw.m_resources.BindTexture(FG::UniformID("sTexture"), m_font_texture, m_font_sampler);
 
 		for (int i = 0; i < draw_data->CmdListsCount; ++i)
 		{
@@ -171,6 +510,15 @@ struct imgui_renderer
 						if (scissor.top < 0)
 						{
 							scissor.top = 0;
+						}
+
+						if (cmd.TextureId)
+						{
+							// pw.m_resources.BindTexture(FG::UniformID("sTexture"), static_cast<FG::RawImageID>(cmd.TextureId), m_font_sampler);
+						}
+						else
+						{
+							pw.m_resources.BindTexture(FG::UniformID("sTexture"), m_font_texture, m_font_sampler);
 						}
 
 						cmdbuf->AddTask(
@@ -552,8 +900,9 @@ struct platform_renderer_data
 																		 .AddViewport(FG::float2{draw_data->DisplaySize.x, draw_data->DisplaySize.y})
 																		 .AddTarget(FG::RenderTargetID::Color_0, image, _clearColor, FG::EAttachmentStoreOp::Store));
 				FG::Task		  draw_ui = m_shared.m_imgui_renderer.draw(
-					 m_imgui_window, draw_data, ctx, cmdbuf, pass_id, m_shared.m_shared_tasks,
-					 [&cmdbuf, &pass_id](const ImDrawList& cmd_list, const ImDrawCmd& cmd) -> FG::Task { return imgui_app_fw::mutable_userdata(&cmdbuf, pass_id).call(cmd_list, cmd); });
+					 m_imgui_window, draw_data, ctx, cmdbuf, pass_id, m_shared.m_shared_tasks, [&cmdbuf, &pass_id](const ImDrawList& cmd_list, const ImDrawCmd& cmd) -> FG::Task {
+						 return imgui_app_fw::mutable_userdata(&cmdbuf, pass_id).call(cmd_list, cmd);
+					 });
 				FG::Unused(draw_ui);
 
 				CHECK_ERR(m_shared.m_frame_graph->Execute(cmdbuf));
@@ -1325,7 +1674,8 @@ struct gui_primary_context
 		// Load Fonts
 		// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
 		// - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-		// - If the file cannot be loaded, the function will return nullptr. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
+		// - If the file cannot be loaded, the function will return nullptr. Please handle those errors in your application (e.g. use an assertion, or display an error and
+		// quit).
 		// - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which
 		// ImGui_ImplXXXX_NewFrame below will call.
 		// - Read 'docs/FONTS.md' for more instructions and details.
