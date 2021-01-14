@@ -14,7 +14,7 @@ if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
 endif()
 
 include(ExternalProject)
-include(cmake/CPM.cmake)
+include(${CPM_SCRIPTS}/CPM.cmake)
 
 CPMAddPackage(
     NAME VulkanMemoryAllocator

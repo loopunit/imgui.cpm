@@ -14,7 +14,7 @@ if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
 endif()
 
 include(ExternalProject)
-include(cmake/CPM.cmake)
+include(${CPM_SCRIPTS}/CPM.cmake)
 
 CPMAddPackage(
     NAME glfw
@@ -22,7 +22,7 @@ CPMAddPackage(
     GIT_TAG 0b9e48fa3df9c184ff1abfb2452fd1a4b696ecd8
     DOWNLOAD_ONLY true)
 	
-#configure_file(patch_CMakeLists.txt ${glfw_SOURCE_DIR}/CMakeLists.txt COPYONLY)
+configure_file(patch_CMakeLists.txt ${glfw_SOURCE_DIR}/CMakeLists.txt COPYONLY)
 
 ExternalProject_Add(glfw_cpm_runtime
     PREFIX "${CMAKE_BINARY_DIR}"

@@ -14,7 +14,7 @@ if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
 endif()
 
 include(ExternalProject)
-include(cmake/CPM.cmake)
+include(${CPM_SCRIPTS}/CPM.cmake)
 
 CPMAddPackage(
     NAME glslang
@@ -33,6 +33,7 @@ ExternalProject_Add(glslang_cpm_runtime
     CMAKE_CACHE_ARGS 
 		-DENABLE_GLSLANG_BINARIES:BOOL=Off
 		-DSPIRV_CROSS_ENABLE_TESTS:BOOL=Off
-        -DSPIRV-Headers_SOURCE_DIR:PATH=${CPM_TOOLCHAIN_CACHE}/SPIRV_Headers
-        -DCMAKE_BUILD_TYPE:STRING=Release 
+		-DSPIRV_SKIP_TESTS:BOOL=On
+		-DBUILD_TESTING:BOOL=Off
+        -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE} 
         -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>)

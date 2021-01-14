@@ -15,6 +15,7 @@ option(IMGUI_BUILD_APP_GLFW_VULKAN "GLFW Vulkan" ON)
 # see https://github.com/TheLartians/CPM.cmake for more info
 
 include(cmake/CPM.cmake)
+include(cmake/add_cpm_module.cmake)
 include(ExternalProject)
 
 ####
@@ -27,16 +28,12 @@ CPMAddPackage(
 ####
 
 if(IMGUI_BUILD_APP_GLFW_VULKAN)
-    include(toolchain.cpm/python.cmake)
     include(toolchain.cpm/spirv_headers.cmake)
     include(toolchain.cpm/spirv_tools.cmake)
     include(toolchain.cpm/spirv_cross.cmake)
     include(toolchain.cpm/glslang.cmake)
     include(toolchain.cpm/basis_universal.cmake)
-
-    set(Python3_ROOT_DIR ${CPM_TOOLCHAIN_CACHE}/python)
-    find_package(Python3 COMPONENTS Interpreter Development)
-
+    include(toolchain.cpm/python.cmake)
     include(runtime.cpm/glslang.cmake)
     include(runtime.cpm/framegraph.cmake)
     include(runtime.cpm/glfw.cmake)
@@ -201,7 +198,7 @@ if(IMGUI_BUILD_APP_FW)
     if(IMGUI_BUILD_APP_GLFW_VULKAN)
         target_link_libraries(imgui_app_fw
             PUBLIC
-                glfw_cpm framegraph_cpm glslang_cpm basis_universal_cpm)
+                glfw framegraph_cpm glslang SPIRV basis_universal_cpm)
 
         target_compile_definitions(imgui_app_fw
             PUBLIC
