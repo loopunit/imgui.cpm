@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 # ---- Project ----
 
 project(
-  FrameGraph_cpm_runtime
+  FrameGraph_cpm
   VERSION 1.0
   LANGUAGES CXX
 )
@@ -40,14 +40,24 @@ configure_file(patch_revision.h                                     ${FrameGraph
 configure_file(patch_VulkanSwapchain.h                              ${FrameGraph_SOURCE_DIR}/extensions/framework/Vulkan/VulkanSwapchain.h COPYONLY)
 configure_file(patch_project_template.cmake.txt                     ${FrameGraph_SOURCE_DIR}/cmake/patch_project_template.cmake COPYONLY)
 
+if (${CPM_FOR_TOOLCHAIN})
+    if (${CPM_FOR_RUNTIME})
+        message(FATAL_ERROR "CPM_FOR_RUNTIME should be false")
+    endif()
 
-ExternalProject_Add(FrameGraph_cpm_runtime
-    PREFIX "${CMAKE_BINARY_DIR}"
-    DOWNLOAD_COMMAND ""
-    SOURCE_DIR "${FrameGraph_SOURCE_DIR}"
-    INSTALL_DIR "${CPM_RUNTIME_CACHE}/FrameGraph"
-    CMAKE_CACHE_ARGS 
-        -DCPM_RUNTIME_CACHE:PATH=${CPM_RUNTIME_CACHE}
-        -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
-        -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
-        -DVulkanMemoryAllocator_SOURCE_DIR:PATH=${VulkanMemoryAllocator_SOURCE_DIR})
+else()
+    if (NOT ${CPM_FOR_RUNTIME})
+        message(FATAL_ERROR "CPM_FOR_RUNTIME should be true")
+    endif()
+
+    ExternalProject_Add(FrameGraph_cpm
+        PREFIX "${CMAKE_BINARY_DIR}"
+        DOWNLOAD_COMMAND ""
+        SOURCE_DIR "${FrameGraph_SOURCE_DIR}"
+        INSTALL_DIR "${CPM_RUNTIME_CACHE}/FrameGraph"
+        CMAKE_CACHE_ARGS 
+            -DCPM_RUNTIME_CACHE:PATH=${CPM_RUNTIME_CACHE}
+            -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+            -DCMAKE_BUILD_TYPE:STRING=${CPM_BUILD_TYPE}
+            -DVulkanMemoryAllocator_SOURCE_DIR:PATH=${VulkanMemoryAllocator_SOURCE_DIR})
+endif()

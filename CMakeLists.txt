@@ -28,16 +28,14 @@ CPMAddPackage(
 ####
 
 if(IMGUI_BUILD_APP_GLFW_VULKAN)
-    include(toolchain.cpm/spirv_headers.cmake)
-    include(toolchain.cpm/spirv_tools.cmake)
-    include(toolchain.cpm/spirv_cross.cmake)
-    include(toolchain.cpm/glslang.cmake)
-    include(toolchain.cpm/basis_universal.cmake)
-    include(toolchain.cpm/python.cmake)
-    include(runtime.cpm/glslang.cmake)
-    include(runtime.cpm/framegraph.cmake)
-    include(runtime.cpm/glfw.cmake)
-    include(runtime.cpm/basis_universal.cmake)
+    include(modules.cpm/spirv_headers.cmake)
+    include(modules.cpm/spirv_tools.cmake)
+    include(modules.cpm/spirv_cross.cmake)
+    include(modules.cpm/glslang.cmake)
+    include(modules.cpm/basis_universal.cmake)
+    include(modules.cpm/python.cmake)
+    include(modules.cpm/framegraph.cmake)
+    include(modules.cpm/glfw.cmake)
 endif()
 
 ####

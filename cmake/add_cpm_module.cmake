@@ -28,6 +28,9 @@ function(add_cpm_module CPM_MODULE_NAME)
 		            -DCPM_TOOLCHAIN_CACHE:PATH=${CPM_TOOLCHAIN_CACHE}
                     -DCPM_RUNTIME_CACHE:PATH=${CPM_RUNTIME_CACHE}
                     -DCPM_SCRIPTS:PATH=${CPM_SCRIPTS}
+                    -DCPM_BUILD_TYPE:STRING=Release
+                    -DCPM_FOR_TOOLCHAIN:BOOL=True
+                    -DCPM_FOR_RUNTIME:BOOL=False
 		            -S "${CMAKE_CURRENT_LIST_DIR}/${CPM_MODULE_NAME}" 
 		            -B "${CMAKE_BINARY_DIR}/${CPM_MODULE_NAME}_cpm_toolchain_build"
                 WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/${CPM_MODULE_NAME}_cpm_toolchain_build")
@@ -35,7 +38,7 @@ function(add_cpm_module CPM_MODULE_NAME)
             execute_process(
                 COMMAND ${CMAKE_COMMAND} 
 		            --build .
-	                --target ${CPM_MODULE_NAME}_cpm_toolchain
+	                --target ${CPM_MODULE_NAME}_cpm
                     --config Release
                 WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/${CPM_MODULE_NAME}_cpm_toolchain_build")
         else()
@@ -45,6 +48,9 @@ function(add_cpm_module CPM_MODULE_NAME)
 		            -DCPM_TOOLCHAIN_CACHE:PATH=${CPM_TOOLCHAIN_CACHE}
                     -DCPM_RUNTIME_CACHE:PATH=${CPM_RUNTIME_CACHE}
                     -DCPM_SCRIPTS:PATH=${CPM_SCRIPTS}
+                    -DCPM_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
+                    -DCPM_FOR_TOOLCHAIN:BOOL=False
+                    -DCPM_FOR_RUNTIME:BOOL=True
 		            -S "${CMAKE_CURRENT_LIST_DIR}/${CPM_MODULE_NAME}" 
 		            -B "${CMAKE_BINARY_DIR}/${CPM_MODULE_NAME}_cpm_runtime_build"
                 WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/${CPM_MODULE_NAME}_cpm_runtime_build")
@@ -52,7 +58,7 @@ function(add_cpm_module CPM_MODULE_NAME)
             execute_process(
                 COMMAND ${CMAKE_COMMAND} 
 		            --build .
-	                --target ${CPM_MODULE_NAME}_cpm_runtime
+	                --target ${CPM_MODULE_NAME}_cpm
                     --config ${CMAKE_BUILD_TYPE}
                 WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/${CPM_MODULE_NAME}_cpm_runtime_build")
         endif()
