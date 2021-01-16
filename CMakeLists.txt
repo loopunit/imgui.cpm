@@ -196,7 +196,7 @@ if(IMGUI_BUILD_APP_FW)
     if(IMGUI_BUILD_APP_GLFW_VULKAN)
         target_link_libraries(imgui_app_fw
             PUBLIC
-                glfw framegraph_cpm glslang SPIRV basis_universal_cpm)
+                glfw framegraph glslang SPIRV basis_universal)
 
         target_compile_definitions(imgui_app_fw
             PUBLIC
