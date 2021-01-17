@@ -39,7 +39,7 @@ function(add_cpm_module CPM_MODULE_NAME)
                 COMMAND ${CMAKE_COMMAND} 
 		            --build .
 	                --target ${CPM_MODULE_NAME}_cpm
-                    --config Release
+                    --config RelWithDebInfo
                 WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/${CPM_MODULE_NAME}_cpm_toolchain_build")
         else()
             execute_process(

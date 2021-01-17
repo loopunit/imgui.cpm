@@ -36,6 +36,7 @@ if(IMGUI_BUILD_APP_GLFW_VULKAN)
     include(modules.cpm/python.cmake)
     include(modules.cpm/framegraph.cmake)
     include(modules.cpm/glfw.cmake)
+    include(modules.cpm/libmdbx.cmake)
 endif()
 
 ####
