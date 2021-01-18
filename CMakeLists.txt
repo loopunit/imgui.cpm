@@ -33,10 +33,10 @@ if(IMGUI_BUILD_APP_GLFW_VULKAN)
     include(modules.cpm/spirv_cross.cmake)
     include(modules.cpm/glslang.cmake)
     include(modules.cpm/basis_universal.cmake)
-    include(modules.cpm/python.cmake)
+    #include(modules.cpm/python.cmake)
     include(modules.cpm/framegraph.cmake)
     include(modules.cpm/glfw.cmake)
-    include(modules.cpm/libmdbx.cmake)
+    #include(modules.cpm/libmdbx.cmake)
 endif()
 
 ####
@@ -197,7 +197,7 @@ if(IMGUI_BUILD_APP_FW)
     if(IMGUI_BUILD_APP_GLFW_VULKAN)
         target_link_libraries(imgui_app_fw
             PUBLIC
-                glfw framegraph glslang SPIRV basis_universal)
+                cpm_runtime::glfw cpm_runtime::framegraph cpm_runtime::glslang cpm_runtime::spirv cpm_runtime::basis_universal)
 
         target_compile_definitions(imgui_app_fw
             PUBLIC
