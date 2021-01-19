@@ -31,6 +31,10 @@ function(add_cpm_module CPM_MODULE_NAME)
                     -DCPM_BUILD_TYPE:STRING=Release
                     -DCPM_FOR_TOOLCHAIN:BOOL=True
                     -DCPM_FOR_RUNTIME:BOOL=False
+                    -DCPM_SOURCE_CACHE:PATH=${CPM_SOURCE_CACHE}
+                    -DCPM_TOOLCHAIN_CACHE:PATH=${CPM_TOOLCHAIN_CACHE}
+                    -DCPM_RUNTIME_CACHE:PATH=${CPM_RUNTIME_CACHE}
+                    -DCPM_RUNTIME_BUILD_CACHE:PATH=${CPM_RUNTIME_BUILD_CACHE}
 		            -S "${CMAKE_CURRENT_LIST_DIR}/${CPM_MODULE_NAME}" 
 		            -B "${CMAKE_BINARY_DIR}/${CPM_MODULE_NAME}_cpm_toolchain_build"
                 WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/${CPM_MODULE_NAME}_cpm_toolchain_build")
@@ -51,6 +55,10 @@ function(add_cpm_module CPM_MODULE_NAME)
                     -DCPM_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
                     -DCPM_FOR_TOOLCHAIN:BOOL=False
                     -DCPM_FOR_RUNTIME:BOOL=True
+                    -DCPM_SOURCE_CACHE:PATH=${CPM_SOURCE_CACHE}
+                    -DCPM_TOOLCHAIN_CACHE:PATH=${CPM_TOOLCHAIN_CACHE}
+                    -DCPM_RUNTIME_CACHE:PATH=${CPM_RUNTIME_CACHE}
+                    -DCPM_RUNTIME_BUILD_CACHE:PATH=${CPM_RUNTIME_BUILD_CACHE}
 		            -S "${CMAKE_CURRENT_LIST_DIR}/${CPM_MODULE_NAME}" 
 		            -B "${CMAKE_BINARY_DIR}/${CPM_MODULE_NAME}_cpm_runtime_build"
                 WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/${CPM_MODULE_NAME}_cpm_runtime_build")
