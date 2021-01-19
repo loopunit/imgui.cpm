@@ -1,7 +1,6 @@
 project(basisu)
 
-cmake_minimum_required(VERSION 3.0)
-
+cmake_minimum_required(VERSION 3.14)
 
 option(BASIS_BUILD_TOOL "Build basisu" ON)
 option(BASIS_BUILD_LIBRARY "Build basisu" OFF)

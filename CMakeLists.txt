@@ -37,60 +37,61 @@ if(IMGUI_BUILD_APP_GLFW_VULKAN)
     include(modules.cpm/framegraph.cmake)
     include(modules.cpm/glfw.cmake)
     include(modules.cpm/libmdbx.cmake)
+    include(modules.cpm/imgui.cmake)
 endif()
 
 ####
 
-CPMAddPackage(
-	NAME imgui
-	GITHUB_REPOSITORY ocornut/imgui
-	GIT_TAG ac08593b9645aee7e086b1e9b98a6a1d79d09210
-	DOWNLOAD_ONLY TRUE)
-
-if(NOT ${imgui_ADDED})
-	message( FATAL_ERROR "Could not find imgui" )
-endif()
-
-message(STATUS "Building imgui via: ${imgui_SOURCE_DIR}")
-
-set(STAGING_ROOT ${CMAKE_CURRENT_BINARY_DIR}/imgui_staging)
-
-file(GLOB headers 
-	"${imgui_SOURCE_DIR}/imconfig.h"
-	"${imgui_SOURCE_DIR}/imgui.h"
-	"${imgui_SOURCE_DIR}/imgui_internal.h"
-	"${imgui_SOURCE_DIR}/imstb_rectpack.h"
-	"${imgui_SOURCE_DIR}/imstb_textedit.h"
-	"${imgui_SOURCE_DIR}/imstb_truetype.h")
-
-file(GLOB sources 
-	"${imgui_SOURCE_DIR}/imgui.cpp"
-	"${imgui_SOURCE_DIR}/imgui_demo.cpp"
-	"${imgui_SOURCE_DIR}/imgui_draw.cpp"
-	"${imgui_SOURCE_DIR}/imgui_widgets.cpp")
-
-file(COPY ${headers} DESTINATION ${STAGING_ROOT}/include)
-
-add_library(imgui STATIC ${sources} ${headers})
-
-target_include_directories(imgui PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>
-                 $<INSTALL_INTERFACE:imgui-${PROJECT_VERSION}>)
-
-packageProject(
-  # the name of the target to export
-  NAME imgui
-  # the version of the target to export
-  VERSION ${PROJECT_VERSION}
-  # a temporary directory to create the config files
-  BINARY_DIR ${PROJECT_BINARY_DIR}
-  # location of the target's public headers
-  INCLUDE_DIR ${STAGING_ROOT}/include
-  # should match the target's INSTALL_INTERFACE include directory
-  INCLUDE_DESTINATION include/imgui-${PROJECT_VERSION}
-  # semicolon separated list of the project's dependencies
-  DEPENDENCIES "")
-
-###############################
+#CPMAddPackage(
+#	NAME imgui
+#	GITHUB_REPOSITORY ocornut/imgui
+#	GIT_TAG ac08593b9645aee7e086b1e9b98a6a1d79d09210
+#	DOWNLOAD_ONLY TRUE)
+#
+#if(NOT ${imgui_ADDED})
+#	message( FATAL_ERROR "Could not find imgui" )
+#endif()
+#
+#message(STATUS "Building imgui via: ${imgui_SOURCE_DIR}")
+#
+#set(STAGING_ROOT ${CMAKE_CURRENT_BINARY_DIR}/imgui_staging)
+#
+#file(GLOB headers 
+#	"${imgui_SOURCE_DIR}/imconfig.h"
+#	"${imgui_SOURCE_DIR}/imgui.h"
+#	"${imgui_SOURCE_DIR}/imgui_internal.h"
+#	"${imgui_SOURCE_DIR}/imstb_rectpack.h"
+#	"${imgui_SOURCE_DIR}/imstb_textedit.h"
+#	"${imgui_SOURCE_DIR}/imstb_truetype.h")
+#
+#file(GLOB sources 
+#	"${imgui_SOURCE_DIR}/imgui.cpp"
+#	"${imgui_SOURCE_DIR}/imgui_demo.cpp"
+#	"${imgui_SOURCE_DIR}/imgui_draw.cpp"
+#	"${imgui_SOURCE_DIR}/imgui_widgets.cpp")
+#
+#file(COPY ${headers} DESTINATION ${STAGING_ROOT}/include)
+#
+#add_library(imgui STATIC ${sources} ${headers})
+#
+#target_include_directories(imgui PUBLIC $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>
+#                 $<INSTALL_INTERFACE:imgui-${PROJECT_VERSION}>)
+#
+#packageProject(
+#  # the name of the target to export
+#  NAME imgui
+#  # the version of the target to export
+#  VERSION ${PROJECT_VERSION}
+#  # a temporary directory to create the config files
+#  BINARY_DIR ${PROJECT_BINARY_DIR}
+#  # location of the target's public headers
+#  INCLUDE_DIR ${STAGING_ROOT}/include
+#  # should match the target's INSTALL_INTERFACE include directory
+#  INCLUDE_DESTINATION include/imgui-${PROJECT_VERSION}
+#  # semicolon separated list of the project's dependencies
+#  DEPENDENCIES "")
+#
+################################
 
 if(IMGUI_BUILD_APP_FW)
     set(APP_STAGING_ROOT ${CMAKE_CURRENT_BINARY_DIR}/imgui_app_fw_staging)
@@ -98,6 +99,16 @@ if(IMGUI_BUILD_APP_FW)
     file(GLOB app_fw_impl_headers)
     file(GLOB app_fw_impl_sources)
     
+    CPMAddPackage(
+	    NAME imgui
+	    GITHUB_REPOSITORY ocornut/imgui
+	    GIT_TAG ac08593b9645aee7e086b1e9b98a6a1d79d09210
+	    DOWNLOAD_ONLY TRUE)
+
+    if(NOT ${imgui_ADDED})
+	    message( FATAL_ERROR "Could not find imgui" )
+    endif()
+
     if(IMGUI_BUILD_APP_WIN32_DX12)
         CPMAddPackage(
 	        NAME D3D12MemoryAllocator
@@ -170,7 +181,7 @@ if(IMGUI_BUILD_APP_FW)
 
     target_link_libraries(imgui_app_fw
         PUBLIC
-            imgui)
+            cpm_runtime::imgui)
 
     if(IMGUI_BUILD_APP_WIN32_DX12)
         target_link_libraries(imgui_app_fw
@@ -206,19 +217,19 @@ if(IMGUI_BUILD_APP_FW)
     
     set_target_properties(imgui_app_fw PROPERTIES CXX_STANDARD 17)
 
-    packageProject(
-      # the name of the target to export
-      NAME imgui_app_fw
-      # the version of the target to export
-      VERSION ${PROJECT_VERSION}
-      # a temporary directory to create the config files
-      BINARY_DIR ${PROJECT_BINARY_DIR}
-      # location of the target's public headers
-      INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/include
-      # should match the target's INSTALL_INTERFACE include directory
-      INCLUDE_DESTINATION include/imgui_app_fw-${PROJECT_VERSION}
-      # semicolon separated list of the project's dependencies
-      DEPENDENCIES "imgui")
+    #packageProject(
+    #  # the name of the target to export
+    #  NAME imgui_app_fw
+    #  # the version of the target to export
+    #  VERSION ${PROJECT_VERSION}
+    #  # a temporary directory to create the config files
+    #  BINARY_DIR ${PROJECT_BINARY_DIR}
+    #  # location of the target's public headers
+    #  INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/include
+    #  # should match the target's INSTALL_INTERFACE include directory
+    #  INCLUDE_DESTINATION include/imgui_app_fw-${PROJECT_VERSION}
+    #  # semicolon separated list of the project's dependencies
+    #  DEPENDENCIES "imgui")
 
 endif()
 
