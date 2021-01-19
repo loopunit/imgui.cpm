@@ -40,7 +40,7 @@ if (IMGUI_BUILD_APP_FW)
     include(modules.cpm/glfw.cmake)
     include(modules.cpm/libmdbx.cmake)
     
-    set(imgui_fw_SOURCE_ROOT ${CMAKE_CURRENT_LIST_DIR})
+    set(imgui_app_fw_SOURCE_ROOT ${CMAKE_CURRENT_LIST_DIR})
     include(modules.cpm/imgui_app_fw.cmake)
 endif()
 
@@ -59,5 +59,5 @@ if(IMGUI_BUILD_EXAMPLES)
     
     target_link_libraries(imgui_example 
         PUBLIC
-            imgui_app_fw)
+            cpm_runtime::imgui_app_fw)
 endif()

@@ -41,11 +41,11 @@ endif()
 if(IMGUI_BUILD_APP_WIN32_DX12)
 	file(GLOB app_fw_impl_headers2 
 		"${imgui_SOURCE_DIR}/backends/imgui_impl_win32.h"
-		"${imgui_fw_SOURCE_ROOT}/src/win32_dx12/imgui_impl_dx12.h")
+		"${imgui_app_fw_SOURCE_ROOT}/src/win32_dx12/imgui_impl_dx12.h")
 	file(GLOB app_fw_impl_sources2
 		"${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp"
-		"${imgui_fw_SOURCE_ROOT}/src/win32_dx12/imgui_impl_dx12.cpp"
-		"${imgui_fw_SOURCE_ROOT}/src/win32_dx12/main.cpp")
+		"${imgui_app_fw_SOURCE_ROOT}/src/win32_dx12/imgui_impl_dx12.cpp"
+		"${imgui_app_fw_SOURCE_ROOT}/src/win32_dx12/main.cpp")
 	
 	list(APPEND app_fw_impl_headers ${app_fw_impl_headers2})
 	list(APPEND app_fw_impl_sources ${app_fw_impl_sources2})
@@ -58,7 +58,7 @@ if(IMGUI_BUILD_APP_WIN32_DX11)
 	file(GLOB app_fw_impl_sources2
 		"${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp"
 		"${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp"
-		"${imgui_fw_SOURCE_ROOT}/src/win32_dx11/main.cpp")
+		"${imgui_app_fw_SOURCE_ROOT}/src/win32_dx11/main.cpp")
 
 	list(APPEND app_fw_impl_headers ${app_fw_impl_headers2})
 	list(APPEND app_fw_impl_sources ${app_fw_impl_sources2})
@@ -66,18 +66,18 @@ endif()
 
 if(IMGUI_BUILD_APP_GLFW_VULKAN)
 	file(GLOB app_fw_impl_sources2 
-		"${imgui_fw_SOURCE_ROOT}/src/glfw_vulkan/VulkanDevice2.h"
-		"${imgui_fw_SOURCE_ROOT}/src/glfw_vulkan/VulkanDevice2.cpp"
-		"${imgui_fw_SOURCE_ROOT}/src/glfw_vulkan/main.cpp")
+		"${imgui_app_fw_SOURCE_ROOT}/src/glfw_vulkan/VulkanDevice2.h"
+		"${imgui_app_fw_SOURCE_ROOT}/src/glfw_vulkan/VulkanDevice2.cpp"
+		"${imgui_app_fw_SOURCE_ROOT}/src/glfw_vulkan/main.cpp")
 
 	list(APPEND app_fw_impl_sources ${app_fw_impl_sources2})
 endif()
 
 file(GLOB app_fw_headers
-	"${imgui_fw_SOURCE_ROOT}/include/*.h")
+	"${imgui_app_fw_SOURCE_ROOT}/include/*.h")
 
 file(GLOB app_fw_sources
-	"${imgui_fw_SOURCE_ROOT}/src/*.cpp")
+	"${imgui_app_fw_SOURCE_ROOT}/src/*.cpp")
 
 add_library(imgui_app_fw STATIC ${app_fw_sources} ${app_fw_impl_sources} ${app_fw_headers} ${app_fw_impl_headers})
 
@@ -89,7 +89,7 @@ if(IMGUI_BUILD_APP_WIN32_DX12)
 	target_include_directories(imgui_app_fw PRIVATE ${D3D12MemoryAllocator_SOURCE_DIR}/src)
 endif()
 
-target_include_directories(imgui_app_fw PUBLIC $<BUILD_INTERFACE:${imgui_fw_SOURCE_ROOT}/include>
+target_include_directories(imgui_app_fw PUBLIC $<BUILD_INTERFACE:${imgui_app_fw_SOURCE_ROOT}/include>
 				 $<INSTALL_INTERFACE:imgui_app_fw-${PROJECT_VERSION}>)
 
 target_link_libraries(imgui_app_fw
@@ -138,7 +138,7 @@ packageProject(
   # a temporary directory to create the config files
   BINARY_DIR ${PROJECT_BINARY_DIR}
   # location of the target's public headers
-  INCLUDE_DIR ${imgui_fw_SOURCE_ROOT}/include
+  INCLUDE_DIR ${imgui_app_fw_SOURCE_ROOT}/include
   # should match the target's INSTALL_INTERFACE include directory
   INCLUDE_DESTINATION include
   # semicolon separated list of the project's dependencies
