@@ -18,10 +18,6 @@ function(add_cpm_module CPM_MODULE_NAME)
         set(${CPM_MODULE_NAME}_cpm_exists true)
     endif()
 
-    if (NOT DEFINED add_cpm_CONFIGURATION)
-        set(add_cpm_CONFIGURATION Release)
-    endif()
-    
     get_filename_component(CPM_SCRIPTS "${CMAKE_SOURCE_DIR}/cmake" ABSOLUTE)    
     
     if(NOT ${CPM_MODULE_NAME}_cpm_exists)
@@ -32,7 +28,7 @@ function(add_cpm_module CPM_MODULE_NAME)
 		            -DCPM_TOOLCHAIN_CACHE:PATH=${CPM_TOOLCHAIN_CACHE}
                     -DCPM_RUNTIME_CACHE:PATH=${CPM_RUNTIME_CACHE}
                     -DCPM_SCRIPTS:PATH=${CPM_SCRIPTS}
-                    -DCPM_BUILD_TYPE:STRING=${add_cpm_CONFIGURATION}
+                    -DCPM_BUILD_TYPE:STRING=Release
                     -DCPM_FOR_TOOLCHAIN:BOOL=True
                     -DCPM_FOR_RUNTIME:BOOL=False
 		            -S "${CMAKE_CURRENT_LIST_DIR}/${CPM_MODULE_NAME}" 
