@@ -282,7 +282,7 @@ struct basis_cache
 		}
 	}
 
-	// clang-format off
+// clang-format off
 	#define BASIS_FG_PAIR( _visit_ ) \
 		_visit_( basist::transcoder_texture_format::cTFBC1_RGB,			FG::EPixelFormat::BC1_RGB8_UNorm ) \
 		_visit_( basist::transcoder_texture_format::cTFBC3_RGBA,		FG::EPixelFormat::BC3_RGBA8_UNorm ) \
@@ -365,7 +365,7 @@ struct basis_cache
 		return std::nullopt;
 	}
 
-	void release_texture(FG::ImageID& img, const FG::CommandBuffer& cmdbuf) 
+	void release_texture(FG::ImageID& img, const FG::CommandBuffer& cmdbuf)
 	{
 		cmdbuf->GetFrameGraph()->ReleaseResource(img);
 	}
@@ -515,6 +515,7 @@ struct imgui_renderer
 						if (cmd.TextureId)
 						{
 							// pw.m_resources.BindTexture(FG::UniformID("sTexture"), static_cast<FG::RawImageID>(cmd.TextureId), m_font_sampler);
+							pw.m_resources.BindTexture(FG::UniformID("sTexture"), m_font_texture, m_font_sampler);
 						}
 						else
 						{
@@ -876,23 +877,30 @@ struct platform_renderer_data
 		CHECK_ERR(m_shared.m_frame_graph->Flush());
 	}
 
-	void render_frame(ImGuiContext* ctx, ImGuiViewport* viewport, ImDrawData* draw_data)
+	FG::Task load_assets(ImGuiContext* ctx)
+	{
+		if (m_is_primary && !m_shared.m_imgui_renderer.m_font_texture)
+		{
+			FG::CommandBuffer cmdbuf = m_shared.m_frame_graph->Begin(FG::CommandBufferDesc{FG::EQueueType::Graphics});
+			m_shared.m_shared_tasks.clear();
+			auto new_task = m_shared.m_imgui_renderer.create_font_texture(ctx, cmdbuf);
+			m_shared.m_frame_graph->Execute(cmdbuf);
+			return new_task;
+		}
+
+		return nullptr;
+	}
+
+	void render_frame(ImGuiContext* ctx, ImGuiViewport* viewport, ImDrawData* draw_data, FG::Task dependent_task)
 	{
 		if (draw_data->TotalVtxCount > 0)
 		{
 			FG::CommandBuffer cmdbuf = m_shared.m_frame_graph->Begin(FG::CommandBufferDesc{FG::EQueueType::Graphics});
 			CHECK_ERR(cmdbuf);
 
-			if (m_is_primary)
 			{
-				m_shared.m_shared_tasks.clear();
-				if (auto new_task = m_shared.m_imgui_renderer.create_font_texture(ctx, cmdbuf); new_task != nullptr)
-				{
-					m_shared.m_shared_tasks.push_back(new_task);
-				}
-			}
+				auto dep_tasks = FGC::ArrayView<FG::Task>{&dependent_task, dependent_task ? size_t(1) : size_t(0)};
 
-			{
 				FG::RawImageID image = cmdbuf->GetSwapchainImage(m_swapchain_id);
 
 				FG::RGBA32f		  _clearColor{0.45f, 0.55f, 0.60f, 1.00f};
@@ -900,7 +908,8 @@ struct platform_renderer_data
 																		 .AddViewport(FG::float2{draw_data->DisplaySize.x, draw_data->DisplaySize.y})
 																		 .AddTarget(FG::RenderTargetID::Color_0, image, _clearColor, FG::EAttachmentStoreOp::Store));
 				FG::Task		  draw_ui = m_shared.m_imgui_renderer.draw(
-					 m_imgui_window, draw_data, ctx, cmdbuf, pass_id, m_shared.m_shared_tasks, [&cmdbuf, &pass_id](const ImDrawList& cmd_list, const ImDrawCmd& cmd) -> FG::Task {
+					 m_imgui_window, draw_data, ctx, cmdbuf, pass_id, dep_tasks, 
+					 [&cmdbuf, &pass_id](const ImDrawList& cmd_list, const ImDrawCmd& cmd) -> FG::Task {
 						 return imgui_app_fw::mutable_userdata(&cmdbuf, pass_id).call(cmd_list, cmd);
 					 });
 				FG::Unused(draw_ui);
@@ -1574,12 +1583,14 @@ struct gui_primary_context
 		data->handle_resize(viewport);
 	}
 
+	FG::Task m_pending_task = nullptr;
+
 	void render_secondary_window(ImGuiViewport* viewport)
 	{
 		const ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
 
 		platform_renderer_data* data = (platform_renderer_data*)viewport->RendererUserData;
-		data->render_frame(ImGui::GetCurrentContext(), viewport, viewport->DrawData);
+		data->render_frame(ImGui::GetCurrentContext(), viewport, viewport->DrawData, m_pending_task);
 	}
 
 	void set_window_title(const char* title)
@@ -1629,7 +1640,8 @@ struct gui_primary_context
 			ImGui::UpdatePlatformWindows();
 		}
 
-		main_viewport_data->render_frame(m_context, main_viewport, ImGui::GetDrawData());
+		m_pending_task = main_viewport_data->load_assets(m_context);
+		main_viewport_data->render_frame(m_context, main_viewport, ImGui::GetDrawData(), m_pending_task);
 
 		if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 		{
