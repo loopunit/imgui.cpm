@@ -61,3 +61,202 @@ if(IMGUI_BUILD_EXAMPLES)
         PUBLIC
             cpm_runtime::imgui_app_fw)
 endif()
+
+CPMAddPackage(
+	NAME implot
+	GITHUB_REPOSITORY epezent/implot
+	GIT_TAG 862b8c44ea6d62d736e320b7a11be8438ecbac5d
+	DOWNLOAD_ONLY true)
+
+if (NOT implot_ADDED)
+	message( FATAL_ERROR "Could not find implot" )
+endif()
+
+file(GLOB implot_public_headers 
+	"${implot_SOURCE_DIR}/implot.h"
+	"${implot_SOURCE_DIR}/implot_internal.h"
+)
+
+file(GLOB implot_source
+	"${implot_SOURCE_DIR}/*.cpp"
+)
+
+#############
+
+CPMAddPackage(
+	NAME ImGuiColorTextEdit
+	GITHUB_REPOSITORY BalazsJako/ImGuiColorTextEdit
+	GIT_TAG 0a88824f7de8d0bd11d8419066caa7d3469395c4
+	DOWNLOAD_ONLY true)
+
+if (NOT ImGuiColorTextEdit_ADDED)
+	message( FATAL_ERROR "Could not find ImGuiColorTextEdit" )
+endif()
+
+file(GLOB ImGuiColorTextEdit_public_headers 
+	"${ImGuiColorTextEdit_SOURCE_DIR}/TextEditor.h"
+)
+
+file(GLOB ImGuiColorTextEdit_source
+	"${ImGuiColorTextEdit_SOURCE_DIR}/*.cpp"
+)
+
+#############
+
+CPMAddPackage(
+	NAME imgui_markdown
+	GITHUB_REPOSITORY juliettef/imgui_markdown
+	GIT_TAG 2b33c435b4463999438a5532f1dc201c142a2aab
+	DOWNLOAD_ONLY true)
+
+if (NOT imgui_markdown_ADDED)
+	message( FATAL_ERROR "Could not find imgui_markdown" )
+endif()
+
+file(GLOB imgui_markdown_public_headers 
+	"${imgui_markdown_SOURCE_DIR}/imgui_markdown.h"
+)
+
+#############
+
+CPMAddPackage(
+	NAME imgui_node_editor
+	GITHUB_REPOSITORY thedmd/imgui-node-editor
+	GIT_TAG 687a72f940c76cf5064e13fe55fa0408c18fcbe4
+	DOWNLOAD_ONLY true)
+
+if (NOT imgui_node_editor_ADDED)
+	message( FATAL_ERROR "Could not find imgui_node_editor" )
+endif()
+
+file(GLOB imgui_node_editor_public_headers 
+	"${imgui_node_editor_SOURCE_DIR}/*.h"
+	"${imgui_node_editor_SOURCE_DIR}/*.inl"
+)
+
+file(GLOB imgui_node_editor_source
+	"${imgui_node_editor_SOURCE_DIR}/*.cpp"
+)
+
+#############
+
+CPMAddPackage(
+	NAME imgui_console
+	GITHUB_REPOSITORY rmxbalanque/imgui-console
+	GIT_TAG a9a1f83b016c3b455f2b88361aa2b79f25f3f961
+	DOWNLOAD_ONLY true)
+	
+
+if (NOT imgui_console_ADDED)
+	message( FATAL_ERROR "Could not find imgui_console" )
+endif()
+
+file(GLOB imgui_console_public_headers 
+	"${imgui_console_SOURCE_DIR}/include/imgui_console/imgui_console.h"
+)
+
+file(GLOB imgui_console_public_headers_csys
+	"${imgui_console_SOURCE_DIR}/include/csys/*.*"
+)
+
+file(GLOB imgui_console_source
+	"${imgui_console_SOURCE_DIR}/src/imgui_console.cpp"
+)
+
+#############
+
+CPMAddPackage(
+	NAME ImGuiFileDialog
+	GITHUB_REPOSITORY aiekick/ImGuiFileDialog
+	GIT_TAG 27cf103c3be5fe11084a07c902c4c180d4e0fff6
+	DOWNLOAD_ONLY true)
+
+if (NOT ImGuiFileDialog_ADDED)
+	message( FATAL_ERROR "Could not find ImGuiFileDialog" )
+endif()
+
+file(GLOB ImGuiFileDialog_public_headers 
+	"${ImGuiFileDialog_SOURCE_DIR}/ImGuiFileDialog/ImGuiFileDialog.h"
+	"${ImGuiFileDialog_SOURCE_DIR}/ImGuiFileDialog/ImGuiFileDialogConfig.h"
+	"${ImGuiFileDialog_SOURCE_DIR}/3rdparty/dirent/include/dirent.h")
+
+file(GLOB ImGuiFileDialog_source
+	"${ImGuiFileDialog_SOURCE_DIR}/ImGuiFileDialog/*.cpp")
+
+#############
+
+set(STAGING_ROOT ${CMAKE_CURRENT_BINARY_DIR}/imgui_addons_staging)
+
+file(COPY 
+	${implot_public_headers}
+	${ImGuiColorTextEdit_public_headers}
+	${imgui_markdown_public_headers}
+	${imgui_node_editor_public_headers}
+	${ImGuiFileDialog_public_headers} 
+	${imgui_console_public_headers}
+	DESTINATION ${STAGING_ROOT}/include)
+
+file(COPY 
+	${ImTerm_public_headers}
+	DESTINATION ${STAGING_ROOT}/include/ImTerm)
+
+file(COPY 
+	${imgui_console_public_headers_csys}
+	DESTINATION ${STAGING_ROOT}/include/csys)
+
+
+file(COPY 
+	${implot_source}
+	${ImGuiColorTextEdit_source}
+	${imgui_node_editor_source}
+	${ImGuiFileDialog_source}
+	${imgui_console_source}
+	DESTINATION ${STAGING_ROOT}/src)
+
+file(GLOB sources ${STAGING_ROOT}/src/*.*)
+
+add_library(imgui_addons STATIC ${sources})
+
+set_target_properties(imgui_addons PROPERTIES CXX_STANDARD 20)
+
+target_link_libraries(imgui_addons PRIVATE cpm_runtime::imgui)
+
+target_include_directories(imgui_addons PUBLIC $<BUILD_INTERFACE:${STAGING_ROOT}/include>
+                 $<INSTALL_INTERFACE:imgui_addons-${PROJECT_VERSION}>)
+
+target_compile_definitions(imgui_addons PUBLIC SPDLOG_COMPILED_LIB SPDLOG_FMT_EXTERNAL)
+
+packageProject(
+  # the name of the target to export
+  NAME imgui_addons
+  # the version of the target to export
+  VERSION ${PROJECT_VERSION}
+  # a temporary directory to create the config files
+  BINARY_DIR ${PROJECT_BINARY_DIR}
+  # location of the target's public headers
+  INCLUDE_DIR ${STAGING_ROOT}/include
+  # should match the target's INSTALL_INTERFACE include directory
+  INCLUDE_DESTINATION include/imgui_addons-${PROJECT_VERSION}
+  # semicolon separated list of the project's dependencies
+  DEPENDENCIES ""
+)
+
+################
+
+if(IMGUI_BUILD_EXAMPLES)
+	file(GLOB addon_example_sources 
+		${CMAKE_CURRENT_LIST_DIR}/examples/addon_main.cpp)
+
+    add_executable(imgui_addons_example
+        ${addon_example_sources})
+    
+	set_target_properties(imgui_addons_example PROPERTIES CXX_STANDARD 20)
+
+    target_include_directories(imgui_addons_example
+        PRIVATE 
+            ${imgui_SOURCE_DIR}/examples)
+    
+    target_link_libraries(imgui_addons_example
+        PUBLIC
+            cpm_runtime::imgui_app_fw imgui_addons)
+endif()
