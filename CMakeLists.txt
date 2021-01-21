@@ -236,7 +236,7 @@ packageProject(
   # location of the target's public headers
   INCLUDE_DIR ${STAGING_ROOT}/include
   # should match the target's INSTALL_INTERFACE include directory
-  INCLUDE_DESTINATION include/imgui_addons-${PROJECT_VERSION}
+  INCLUDE_DESTINATION include
   # semicolon separated list of the project's dependencies
   DEPENDENCIES ""
 )
