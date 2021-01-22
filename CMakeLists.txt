@@ -27,22 +27,22 @@ CPMAddPackage(
 
 ####
 
-include(modules.cpm/imgui.cmake)
+CPMAddPackage(
+  NAME cpmpckg
+  GITHUB_REPOSITORY loopunit/cpmpckg
+  GIT_TAG 452b76dd59a587f36c334b275117422c52cdc3cb)
 
-if (IMGUI_BUILD_APP_FW)
-    #include(modules.cpm/spirv_headers.cmake)
-    #include(modules.cpm/spirv_tools.cmake)
-    #include(modules.cpm/spirv_cross.cmake)
-    #include(modules.cpm/python.cmake)
-    include(modules.cpm/glslang.cmake)
-    include(modules.cpm/libmdbx.cmake)
-    include(modules.cpm/basis_universal.cmake)
-    include(modules.cpm/glfw.cmake)
-    include(modules.cpm/framegraph.cmake)
-    
-    set(imgui_app_fw_SOURCE_ROOT ${CMAKE_CURRENT_LIST_DIR})
-    include(modules.cpm/imgui_app_fw.cmake)
-endif()
+####
+
+set(CPM_USE_glslang true)
+set(CPM_USE_basis_universal true)
+set(CPM_USE_glfw true)
+set(CPM_USE_framegraph true)
+set(CPM_USE_imgui true)
+include(${cpmpckg_SOURCE_DIR}/CMakeLists.txt)
+
+set(imgui_app_fw_SOURCE_ROOT ${CMAKE_CURRENT_LIST_DIR})
+include(modules.cpm/imgui_app_fw.cmake)
 
 if(IMGUI_BUILD_EXAMPLES)
     file(GLOB example_sources 

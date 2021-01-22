@@ -1,1 +1,0 @@
-add_cpm_module(SPIRV_Cross FOR_TOOLCHAIN)
